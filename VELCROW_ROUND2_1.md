@@ -36,7 +36,7 @@ The claim: *"Merchants install one script. Their shoppers get an agent that clos
 |---|---|---|
 | `8001` | Shop A API — **FreshKart** (grocery) | one shop codebase, config = grocery |
 | `8002` | Shop B API — **Loomcraft** (apparel) | same codebase, config = apparel |
-| `8003` | **VelcrowAI agent service** | agent brain, mandates, wallet, chain logs, widget bundle, WhatsApp webhook |
+| `8003` | **VelcrowAI agent service** | agent brain, mandates, wallet, chain logs, widget bundle, WhatsApp webhook. Comes up early in Phase 2 in **trust-core-only** form: mandate issue, cart-bound approval signed on the human's tap, `wallet.pay`, confirm — no widget, no LLM, no scheduler until Phase 4. Buyer/merchant separation is absolute: the shop never signs anything on the buyer's behalf and never holds buyer keys |
 | `5173` | FreshKart frontend: storefront `/` + merchant console `/console` | Vite app, env `SHOP=grocery` |
 | `5174` | Loomcraft frontend: storefront `/` + merchant console `/console` | same Vite codebase, env `SHOP=apparel` |
 | `5175` | VelcrowAI consumer app: buyer chat `/` + audit view `/audit` | Vite app |
@@ -351,7 +351,7 @@ Instead: FreshKart and Loomcraft get **distinct** identities — different palet
 | # | Build | Acceptance test |
 |---|---|---|
 | 1 | Trust core: mandate, chainlog, wallet + pytest. Shop backend with catalog/cart/order/confirm + Razorpay test + **§6.6 agent-readable surface** (manifest, typed errors, idempotency, mandate verification) | `pytest` green; curl completes a purchase; order visible in Razorpay test dashboard; forged mandate and over-cap both refused and logged on both chains; `GET /.well-known/agent-commerce.json` returns a valid manifest pointing at `/agent/catalog`; `POST /agent/capabilities` answers differently for the two shops |
-| 2 | FreshKart storefront on :5173 — grid, product page with qty, cart drawer, checkout with coupons | Buy 3 items with quantities in the browser; best coupon auto-applied; payment succeeds |
+| 2 | FreshKart storefront on :5173 — grid, product page with qty, cart drawer, checkout with coupons. Also brings :8003 up early in **trust-core-only** form (mandate issue, cart-bound approval on the human tap, wallet.pay, confirm-payment) so the browser checkout completes through the real buyer-side path — no widget/LLM/scheduler | Buy 3 items with quantities in the browser; best coupon auto-applied; payment succeeds |
 | 3 | Loomcraft on :5174 (apparel config, sizes, distinct branding) + out-of-stock inline reserve flow | Both shops run independently; selecting an out-of-stock size opens reserve, reservation is stored |
 | 4 | VelcrowAI agent service :8003 + widget bundle embedded in BOTH shops; tool-calling wired; cart-aware | In FreshKart, "add 2 kg lemons under ₹100" updates the visible cart; same widget works in Loomcraft |
 | 5 | Widget commerce: coupon claim + near-miss, reorder-my-usual, conversational checkout with **cart-bound approval (§5.1)** | "my usual order" re-quotes with deltas; "pay" runs mandate → approval → Razorpay; receipt in chat |

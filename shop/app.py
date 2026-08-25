@@ -13,6 +13,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from common import chainlog, errors, mandate
@@ -28,6 +29,12 @@ def create_app() -> FastAPI:
     caps: dict[str, Any] = cfg["capabilities"]
     db = ShopDB(shop_id, load_catalog(cfg))
     app = FastAPI(title=f"{cfg['brand']} API", version="0.1.0")
+    app.add_middleware(  # storefront origins only (5173/5174); :8003 is server-to-server
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173", "http://localhost:5174",
+                       "http://127.0.0.1:5173", "http://127.0.0.1:5174"],
+        allow_methods=["*"], allow_headers=["*"], expose_headers=["Idempotent-Replay"],
+    )
 
     @app.exception_handler(errors.VelcrowError)
     async def _velcrow_error(_req: Request, exc: errors.VelcrowError) -> JSONResponse:

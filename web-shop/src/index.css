@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+/* Brand tokens, switched by data-brand on <html> (spec 11: two distinct
+   identities; FreshKart = market green + haldi on paper). */
+:root[data-brand="grocery"] {
+  --brand: #1c5d3c;
+  --brand-deep: #123f28;
+  --accent: #e8a812;
+  --accent-soft: #fdf3d7;
+  --paper: #faf6ee;
+  --card: #ffffff;
+  --ink: #22301f;
+  --muted: #6b7364;
+  --line: #e4ddcd;
+  --accent-ink: #8a6206;
+  --danger: #b3402a;
+  --danger-soft: #fbeae5;
+  --ok-soft: #e7f0e6;
+}
+
+:root[data-brand="apparel"] {
+  --brand: #4a2c2a;
+  --brand-deep: #331d1c;
+  --accent: #c9a227;
+  --accent-soft: #f7efd8;
+  --paper: #f7f3ef;
+  --card: #ffffff;
+  --ink: #2a2321;
+  --muted: #7a6f69;
+  --line: #e6ddd4;
+  --accent-ink: #7d6416;
+  --danger: #a83a32;
+  --danger-soft: #f9e9e7;
+  --ok-soft: #ece7db;
+}
+
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-deep: var(--brand-deep);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-ok-soft: var(--ok-soft);
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-body: "Public Sans", system-ui, -apple-system, sans-serif;
+}
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+/* skeleton shimmer for loading states */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.9; }
+}
+.skeleton {
+  animation: pulse-soft 1.4s ease-in-out infinite;
+  background: var(--line);
+  border-radius: 0.5rem;
+}
+
+/* thin scrollbars for category rails */
+.rail::-webkit-scrollbar { height: 6px; }
+.rail::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }

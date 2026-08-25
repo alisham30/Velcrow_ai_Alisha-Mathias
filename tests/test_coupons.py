@@ -90,3 +90,16 @@ def test_all_money_fields_are_integers():
     assert isinstance(r["best"]["net_total_paise"], int)
     for a in r["applicable"]:
         assert isinstance(a["discount_paise"], int)
+
+
+def test_arithmetic_uses_rupee_sign_and_indian_grouping():
+    """Spec 11: money renders as the rupee sign with en-IN digit grouping,
+    and the engine's own arithmetic string must match the storefront."""
+    from shop.coupons import _rupees
+
+    assert _rupees(48200) == "₹482.00"
+    assert _rupees(143820) == "₹1,438.20"
+    assert _rupees(12345678) == "₹1,23,456.78"
+    r = evaluate([_line("honey", 2, 21900, "packaged")], GROCERY_COUPONS)
+    assert "Rs " not in r["best"]["arithmetic"]
+    assert "₹" in r["best"]["arithmetic"]
