@@ -1,0 +1,27 @@
+# secrets — never commit keys
+.env
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# runtime state: SQLite DBs, chain logs, locks
+data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# frontends (Phases 2+, Vite)
+node_modules/
+dist/
+*.local
+
+# editors / OS
+.vscode/
+.idea/
+Thumbs.db

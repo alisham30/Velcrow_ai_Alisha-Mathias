@@ -1,0 +1,35 @@
+shop_id: loomcraft
+brand: Loomcraft
+category: apparel
+variant_kind: size
+catalog_file: catalogs/apparel.json
+theme:
+  primary: "#4a2c2a"
+  accent: "#c9a227"
+capabilities:
+  checkout: true
+  discounts: true
+  reservations: true
+  restock_notify: true
+  human_approval: true
+  variants: size
+coupons:
+  - code: LOOM200
+    kind: flat
+    value_paise: 20000
+    min_cart_paise: 199900
+    stackable: false
+    description: "Rs 200 off orders over Rs 1,999"
+  - code: WEAVE10
+    kind: percent
+    value_pct: 10
+    cap_paise: 30000
+    min_cart_paise: 99900
+    stackable: false
+    description: "10% off orders over Rs 999, up to Rs 300"
+  - code: FESTIVE500
+    kind: flat
+    value_paise: 50000
+    min_cart_paise: 399900
+    stackable: false
+    description: "Rs 500 off orders over Rs 3,999"

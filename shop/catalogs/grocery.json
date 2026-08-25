@@ -1,0 +1,141 @@
+[
+  {
+    "id": "lemons-1kg",
+    "name": "Lemons (1 kg)",
+    "category": "produce",
+    "price_paise": 4400,
+    "cost_price_paise": 3000,
+    "image_url": "/img/lemons.jpg",
+    "description": "Fresh country lemons, sorted and washed. Roughly 8-10 lemons per kilo.",
+    "tags": ["citrus", "fruit", "fresh"],
+    "stock": 30,
+    "exact_only": false
+  },
+  {
+    "id": "tomatoes-1kg",
+    "name": "Tomatoes (1 kg)",
+    "category": "produce",
+    "price_paise": 3200,
+    "cost_price_paise": 2200,
+    "image_url": "/img/tomatoes.jpg",
+    "description": "Ripe hybrid tomatoes for everyday cooking.",
+    "tags": ["vegetable", "fresh"],
+    "stock": 40,
+    "exact_only": false
+  },
+  {
+    "id": "basmati-5kg",
+    "name": "Long-grain Basmati Rice (5 kg)",
+    "category": "staples",
+    "price_paise": 42900,
+    "cost_price_paise": 36000,
+    "image_url": "/img/basmati.jpg",
+    "description": "Aged long-grain basmati, 5 kg bag.",
+    "tags": ["rice", "staple"],
+    "stock": 12,
+    "exact_only": false
+  },
+  {
+    "id": "atta-5kg",
+    "name": "Whole Wheat Atta (5 kg)",
+    "category": "staples",
+    "price_paise": 27500,
+    "cost_price_paise": 23000,
+    "image_url": "/img/atta.jpg",
+    "description": "Stone-ground whole wheat flour, 5 kg.",
+    "tags": ["flour", "staple"],
+    "stock": 18,
+    "exact_only": false
+  },
+  {
+    "id": "toor-dal-1kg",
+    "name": "Toor Dal (1 kg)",
+    "category": "staples",
+    "price_paise": 16900,
+    "cost_price_paise": 14000,
+    "image_url": "/img/toor-dal.jpg",
+    "description": "Unpolished toor dal, 1 kg pack.",
+    "tags": ["dal", "staple", "protein"],
+    "stock": 25,
+    "exact_only": false
+  },
+  {
+    "id": "peanut-butter-340g",
+    "name": "Peanut Butter (340 g)",
+    "category": "packaged",
+    "price_paise": 24900,
+    "cost_price_paise": 18000,
+    "image_url": "/img/peanut-butter.jpg",
+    "description": "Stone-ground peanut butter, no added palm oil.",
+    "tags": ["spread", "breakfast"],
+    "variants": [
+      {"label": "Crunchy", "stock": 10},
+      {"label": "Smooth", "stock": 8}
+    ],
+    "exact_only": false
+  },
+  {
+    "id": "masala-oats-400g",
+    "name": "Masala Oats (400 g)",
+    "category": "packaged",
+    "price_paise": 9900,
+    "cost_price_paise": 7000,
+    "image_url": "/img/masala-oats.jpg",
+    "description": "Savoury instant oats, 400 g pouch.",
+    "tags": ["breakfast", "instant"],
+    "variants": [
+      {"label": "Classic", "stock": 20},
+      {"label": "Spicy", "stock": 0, "restock_date": "2026-08-30"}
+    ],
+    "exact_only": false
+  },
+  {
+    "id": "filter-coffee-250g",
+    "name": "Filter Coffee Powder (250 g)",
+    "category": "packaged",
+    "price_paise": 18500,
+    "cost_price_paise": 13000,
+    "image_url": "/img/filter-coffee.jpg",
+    "description": "80:20 coffee-chicory blend, medium roast.",
+    "tags": ["coffee", "beverage"],
+    "stock": 14,
+    "exact_only": false
+  },
+  {
+    "id": "ghee-500ml",
+    "name": "Cow Ghee (500 ml)",
+    "category": "dairy",
+    "price_paise": 37500,
+    "cost_price_paise": 32000,
+    "image_url": "/img/ghee.jpg",
+    "description": "Slow-cooked cow ghee in a glass jar.",
+    "tags": ["dairy", "cooking"],
+    "stock": 0,
+    "restock_date": "2026-08-28",
+    "exact_only": false
+  },
+  {
+    "id": "infant-formula-400g",
+    "name": "Infant Formula Stage 1 (400 g)",
+    "category": "baby",
+    "price_paise": 64500,
+    "cost_price_paise": 58000,
+    "image_url": "/img/infant-formula.jpg",
+    "description": "Stage 1 infant milk formula, 0-6 months. No substitutions.",
+    "tags": ["baby", "formula"],
+    "stock": 6,
+    "exact_only": true
+  },
+  {
+    "id": "honey-500g",
+    "name": "Raw Forest Honey (500 g)",
+    "category": "packaged",
+    "price_paise": 21900,
+    "cost_price_paise": 16000,
+    "image_url": "/img/honey.jpg",
+    "description": "Unprocessed multiflora honey, 500 g squeeze bottle.",
+    "tags": ["honey", "breakfast"],
+    "stock": 16,
+    "exact_only": false
+  }
+]

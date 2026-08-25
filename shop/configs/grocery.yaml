@@ -1,0 +1,36 @@
+shop_id: freshkart
+brand: FreshKart
+category: grocery
+variant_kind: pack
+catalog_file: catalogs/grocery.json
+theme:
+  primary: "#1c5d3c"
+  accent: "#e8a812"
+capabilities:
+  checkout: true
+  discounts: true
+  reservations: false
+  restock_notify: false
+  human_approval: true
+  variants: pack
+coupons:
+  - code: FRESH50
+    kind: flat
+    value_paise: 5000
+    min_cart_paise: 39900
+    stackable: true
+    description: "Rs 50 off orders over Rs 399"
+  - code: FRESH150
+    kind: flat
+    value_paise: 15000
+    min_cart_paise: 140000
+    stackable: false
+    description: "Rs 150 off orders over Rs 1,400"
+  - code: STAPLES10
+    kind: percent
+    value_pct: 10
+    cap_paise: 12000
+    min_cart_paise: 0
+    category: staples
+    stackable: true
+    description: "10% off staples, up to Rs 120"
