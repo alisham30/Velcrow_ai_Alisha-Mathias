@@ -7,7 +7,17 @@ import tailwindcss from "@tailwindcss/vite";
 const shop = process.env.VITE_SHOP || "grocery";
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    {
+      // the merchant's own page carries the tag; only the brand differs
+      name: "velcrow-widget-tag",
+      transformIndexHtml(html) {
+        return html.replace(/%VELCROW_SHOP%/g, shop);
+      },
+    },
+  ],
   server: {
     port: shop === "apparel" ? 5174 : 5173,
     strictPort: true,

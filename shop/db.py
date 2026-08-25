@@ -43,6 +43,11 @@ class ShopDB:
                   res_id TEXT PRIMARY KEY, item_id TEXT NOT NULL, variant TEXT NOT NULL,
                   contact_ref TEXT NOT NULL, mandate_jti TEXT NOT NULL,
                   status TEXT NOT NULL, created_ts REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS demand_ledger (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT, item_id TEXT NOT NULL,
+                  variant TEXT NOT NULL, qty INTEGER NOT NULL,
+                  unit_price_paise INTEGER NOT NULL, value_paise INTEGER NOT NULL,
+                  reason TEXT NOT NULL, res_id TEXT, created_ts REAL NOT NULL);
                 CREATE TABLE IF NOT EXISTS idempotency (
                   key TEXT NOT NULL, endpoint TEXT NOT NULL, request_hash TEXT NOT NULL,
                   status INTEGER NOT NULL, body TEXT NOT NULL,
@@ -196,6 +201,44 @@ class ShopDB:
                 (res_id, item_id, variant, contact_ref, mandate_jti, time.time()),
             )
         return res_id
+
+    # -- demand ledger (spec 6.1, 7.2: refusals become restock forecasts) ----
+    def record_lost_demand(self, item_id: str, variant: str, qty: int, unit_price_paise: int,
+                           reason: str, res_id: str | None = None) -> int:
+        """One row per refused demand. value_paise is the revenue not taken."""
+        with self._conn() as c:
+            cur = c.execute(
+                "INSERT INTO demand_ledger (item_id, variant, qty, unit_price_paise, value_paise,"
+                " reason, res_id, created_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (item_id, variant, qty, unit_price_paise, qty * unit_price_paise, reason, res_id,
+                 time.time()),
+            )
+        return int(cur.lastrowid)
+
+    def demand_rows(self) -> list[dict[str, Any]]:
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT item_id, variant, reason, SUM(qty) AS lost_units,"
+                " SUM(value_paise) AS lost_value_paise, COUNT(*) AS events,"
+                " GROUP_CONCAT(res_id) AS res_ids"
+                " FROM demand_ledger GROUP BY item_id, variant, reason"
+                " ORDER BY lost_value_paise DESC"
+            ).fetchall()
+        out: list[dict[str, Any]] = []
+        for r in rows:
+            d = dict(r)
+            d["reservation_ids"] = [x for x in (d.pop("res_ids") or "").split(",") if x]
+            out.append(d)
+        return out
+
+    def reservations_for(self, item_id: str, variant: str) -> list[dict[str, Any]]:
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT res_id, contact_ref, status, created_ts FROM reservations"
+                " WHERE item_id = ? AND variant = ? ORDER BY created_ts",
+                (item_id, variant),
+            ).fetchall()
+        return [dict(r) for r in rows]
 
     # -- idempotency --------------------------------------------------------
     def idem_get(self, key: str, endpoint: str) -> dict[str, Any] | None:

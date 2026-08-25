@@ -11,26 +11,9 @@ from __future__ import annotations
 from itertools import combinations
 from typing import Any
 
+from common.money import rupees as _rupees
+
 NEAR_MISS_WINDOW_PAISE = 15000  # Rs 150
-
-
-def _rupees(paise: int) -> str:
-    """Indian digit grouping with the rupee sign, matching the storefront's
-    toLocaleString("en-IN") output (spec 11) so both surfaces agree."""
-    sign = "-" if paise < 0 else ""
-    paise = abs(paise)
-    whole, frac = divmod(paise, 100)
-    digits = str(whole)
-    if len(digits) > 3:  # last three, then groups of two
-        head, tail = digits[:-3], digits[-3:]
-        parts = []
-        while len(head) > 2:
-            parts.insert(0, head[-2:])
-            head = head[:-2]
-        if head:
-            parts.insert(0, head)
-        digits = ",".join(parts + [tail])
-    return f"{sign}₹{digits}.{frac:02d}"
 
 
 def _discount(coupon: dict[str, Any], subtotal: int, category_subtotals: dict[str, int]) -> int | None:

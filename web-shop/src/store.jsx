@@ -11,6 +11,7 @@ export function CartProvider({ children }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null); // {kind: "error"|"info", text}
+  const [caps, setCaps] = useState(null); // what this shop supports (spec 6.6)
 
   const refreshQuote = useCallback(async (view) => {
     if (!view || view.items.length === 0) {
@@ -43,11 +44,37 @@ export function CartProvider({ children }) {
     return created;
   }, [refreshQuote]);
 
+  // Ask the shop what it supports before offering capability-gated UI.
+  useEffect(() => {
+    shop
+      .capabilities()
+      .then(setCaps)
+      .catch(() => setCaps({}));
+  }, []);
+
   useEffect(() => {
     ensureCart().catch(() =>
       setNotice({ kind: "error", text: `Could not reach the ${brand.name} shop API on ${brand.apiBase}.` }),
     );
   }, [ensureCart]);
+
+  // The widget drives this same cart through the shop API, then tells the
+  // page to refetch. There is no second cart anywhere (spec 6.3).
+  useEffect(() => {
+    const onAgentChange = () => {
+      const saved = localStorage.getItem(CART_KEY);
+      if (!saved) return;
+      shop
+        .getCart(saved)
+        .then((view) => {
+          setCart(view);
+          refreshQuote(view);
+        })
+        .catch(() => {});
+    };
+    window.addEventListener("velcrow:cart-changed", onAgentChange);
+    return () => window.removeEventListener("velcrow:cart-changed", onAgentChange);
+  }, [refreshQuote]);
 
   const mutate = useCallback(
     async (op) => {
@@ -98,7 +125,7 @@ export function CartProvider({ children }) {
 
   return (
     <CartContext.Provider
-      value={{ cart, quote, count, busy, drawerOpen, setDrawerOpen, add, updateQty, removeLine, resetCart, notice, setNotice, ensureCart }}
+      value={{ cart, quote, count, busy, caps, drawerOpen, setDrawerOpen, add, updateQty, removeLine, resetCart, notice, setNotice, ensureCart }}
     >
       {children}
     </CartContext.Provider>

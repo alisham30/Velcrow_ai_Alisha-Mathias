@@ -9,14 +9,14 @@ export default function Header() {
     <header className="sticky top-0 z-30 border-b border-line bg-paper/95 backdrop-blur-none">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <Link to="/" className="flex items-baseline gap-2">
-          <span className="font-display text-2xl font-bold text-brand">{brand.name}</span>
-          <span className="hidden text-xs font-medium tracking-wide text-muted sm:inline">
-            EST. 2026 · CITYWIDE DELIVERY
+          <span className="font-display text-2xl text-brand">{brand.name}</span>
+          <span className="brand-label hidden text-xs font-medium text-muted sm:inline">
+            {brand.strapline}
           </span>
         </Link>
         <button
           onClick={() => setDrawerOpen(true)}
-          className="relative flex items-center gap-2 rounded-lg border border-line bg-card px-4 py-2 text-sm font-semibold hover:border-brand"
+          className="relative flex items-center gap-2 rounded-control border border-line bg-card px-4 py-2 text-sm font-semibold hover:border-brand"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path

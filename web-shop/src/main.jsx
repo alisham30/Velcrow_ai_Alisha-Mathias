@@ -10,8 +10,13 @@ import Product from "./pages/Product.jsx";
 import Checkout from "./pages/Checkout.jsx";
 import "./index.css";
 
+// Each shop loads only its own typefaces, so the brands never share a face.
 document.documentElement.dataset.brand = SHOP;
 document.title = brand.name;
+const fontLink = document.createElement("link");
+fontLink.rel = "stylesheet";
+fontLink.href = brand.fontHref;
+document.head.appendChild(fontLink);
 
 function App() {
   return (
@@ -26,8 +31,7 @@ function App() {
           </Routes>
           <CartDrawer />
           <footer className="mt-20 border-t border-line py-8 text-center text-sm text-muted">
-            {brand.name} — a demo shop on the VelcrowAI trust layer. Razorpay test mode; no real
-            money moves.
+            {brand.name} — {brand.footerNote}. Razorpay test mode; no real money moves.
           </footer>
         </div>
       </CartProvider>

@@ -1,11 +1,12 @@
 import React from "react";
+import { brand } from "../brand.js";
 
 export function SkeletonGrid({ n = 8 }) {
   return (
-    <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
+    <div className={`grid ${brand.gridClass}`}>
       {Array.from({ length: n }, (_, i) => (
-        <div key={i} className="rounded-xl border border-line bg-card p-4">
-          <div className="skeleton mb-4 aspect-square w-full" />
+        <div key={i} className={brand.cardStyle === "editorial" ? "" : "rounded-card border border-line bg-card p-4"}>
+          <div className="skeleton mb-4 w-full" style={{ aspectRatio: brand.cardAspect }} />
           <div className="skeleton mb-2 h-4 w-3/4" />
           <div className="skeleton h-4 w-1/3" />
         </div>
@@ -16,13 +17,13 @@ export function SkeletonGrid({ n = 8 }) {
 
 export function ErrorBanner({ text, onRetry }) {
   return (
-    <div className="mx-auto my-16 max-w-md rounded-xl border border-danger/30 bg-danger-soft p-6 text-center">
+    <div className="mx-auto my-16 max-w-md rounded-card border border-danger/30 bg-danger-soft p-6 text-center">
       <p className="font-display text-lg font-semibold text-danger">Something went off the rails</p>
       <p className="mt-2 text-sm text-ink/80">{text}</p>
       {onRetry && (
         <button
           onClick={onRetry}
-          className="mt-4 rounded-lg bg-danger px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+          className="mt-4 rounded-control bg-danger px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
         >
           Try again
         </button>
@@ -44,11 +45,11 @@ export function EmptyBasket({ onShop }) {
         <circle cx="42" cy="44" r="2" fill="var(--muted)" />
       </svg>
       <p className="mt-4 font-display text-lg font-semibold">Your basket is empty</p>
-      <p className="mt-1 text-sm text-muted">Everything you add shows up here with its quantity.</p>
+      <p className="mt-1 text-sm text-muted">{brand.emptyBasketLine}</p>
       {onShop && (
         <button
           onClick={onShop}
-          className="mt-5 rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep"
+          className="mt-5 rounded-control bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep"
         >
           Browse the shop
         </button>

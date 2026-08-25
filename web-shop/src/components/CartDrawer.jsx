@@ -2,12 +2,12 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../store.jsx";
 import { rupees } from "../money.js";
-import { brand } from "../brand.js";
+import { brand, variantLabel } from "../brand.js";
 import QtyStepper from "./QtyStepper.jsx";
 import { EmptyBasket } from "./States.jsx";
 
 export default function CartDrawer() {
-  const { cart, quote, drawerOpen, setDrawerOpen, updateQty, removeLine, busy } = useCart();
+  const { cart, quote, drawerOpen, setDrawerOpen, updateQty, removeLine, busy, caps } = useCart();
   const navigate = useNavigate();
   if (!drawerOpen) return null;
 
@@ -25,7 +25,7 @@ export default function CartDrawer() {
       />
       <aside className="flex h-full w-full max-w-md flex-col border-l border-line bg-paper shadow-xl">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <h2 className="font-display text-xl font-semibold">Your basket</h2>
+          <h2 className="font-display text-xl">Your basket</h2>
           <button
             onClick={() => setDrawerOpen(false)}
             className="rounded-md p-1 text-muted hover:text-ink"
@@ -52,8 +52,8 @@ export default function CartDrawer() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold">{line.name}</p>
                     {line.variant && (
-                      <p className="mt-0.5 text-xs uppercase tracking-wide text-muted">
-                        {brand.variantLabel}: {line.variant}
+                      <p className="brand-label mt-0.5 text-xs text-muted">
+                        {variantLabel(caps)}: {line.variant}
                       </p>
                     )}
                     <p className="mt-1 text-sm text-muted">
@@ -105,7 +105,7 @@ export default function CartDrawer() {
               </div>
             )}
             {nearMiss && (
-              <p className="mt-3 rounded-lg bg-accent-soft px-3 py-2 text-xs leading-relaxed text-ink/80">
+              <p className="mt-3 rounded-control bg-accent-soft px-3 py-2 text-xs leading-relaxed text-ink/80">
                 Add {rupees(nearMiss.add_paise)} more to unlock {nearMiss.code} and save{" "}
                 {rupees(nearMiss.saves_paise)}.
               </p>
@@ -115,7 +115,7 @@ export default function CartDrawer() {
                 setDrawerOpen(false);
                 navigate("/checkout");
               }}
-              className="mt-4 w-full rounded-lg bg-brand py-3 font-semibold text-white hover:bg-brand-deep"
+              className="mt-4 w-full rounded-control bg-brand py-3 font-semibold text-white hover:bg-brand-deep"
             >
               Go to checkout
             </button>

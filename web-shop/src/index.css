@@ -1,37 +1,55 @@
 @import "tailwindcss";
 
-/* Brand tokens, switched by data-brand on <html> (spec 11: two distinct
-   identities; FreshKart = market green + haldi on paper). */
+/* Two unrelated businesses that share a checkout mechanic (spec 11).
+   FreshKart: market green + haldi on warm paper, rounded, friendly.
+   Loomcraft: natural-dye ink + madder on undyed cotton, square corners,
+   editorial spacing, letter-spaced labels. */
 :root[data-brand="grocery"] {
   --brand: #1c5d3c;
   --brand-deep: #123f28;
   --accent: #e8a812;
   --accent-soft: #fdf3d7;
+  --accent-ink: #8a6206;
   --paper: #faf6ee;
   --card: #ffffff;
   --ink: #22301f;
   --muted: #6b7364;
   --line: #e4ddcd;
-  --accent-ink: #8a6206;
   --danger: #b3402a;
   --danger-soft: #fbeae5;
   --ok-soft: #e7f0e6;
+
+  --radius-card-v: 0.75rem;
+  --radius-control-v: 0.5rem;
+  --label-tracking: 0.02em;
+  --label-transform: none;
+  --display-weight: 700;
+  --font-display-v: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-body-v: "Public Sans", system-ui, -apple-system, sans-serif;
 }
 
 :root[data-brand="apparel"] {
-  --brand: #4a2c2a;
-  --brand-deep: #331d1c;
-  --accent: #c9a227;
-  --accent-soft: #f7efd8;
-  --paper: #f7f3ef;
-  --card: #ffffff;
-  --ink: #2a2321;
-  --muted: #7a6f69;
-  --line: #e6ddd4;
-  --accent-ink: #7d6416;
-  --danger: #a83a32;
-  --danger-soft: #f9e9e7;
-  --ok-soft: #ece7db;
+  --brand: #1f2a2e;
+  --brand-deep: #0f1719;
+  --accent: #a8412a;
+  --accent-soft: #f4e6e0;
+  --accent-ink: #8c3320;
+  --paper: #f4f2ec;
+  --card: #fbfaf7;
+  --ink: #23231f;
+  --muted: #7d786f;
+  --line: #ddd8cd;
+  --danger: #8c3320;
+  --danger-soft: #f4e6e0;
+  --ok-soft: #e8e6dc;
+
+  --radius-card-v: 0rem;
+  --radius-control-v: 0rem;
+  --label-tracking: 0.18em;
+  --label-transform: uppercase;
+  --display-weight: 500;
+  --font-display-v: "Cormorant Garamond", Georgia, serif;
+  --font-body-v: "Jost", system-ui, -apple-system, sans-serif;
 }
 
 @theme inline {
@@ -48,8 +66,10 @@
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-ok-soft: var(--ok-soft);
-  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
-  --font-body: "Public Sans", system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-display-v);
+  --font-body: var(--font-body-v);
+  --radius-card: var(--radius-card-v);
+  --radius-control: var(--radius-control-v);
 }
 
 html {
@@ -58,7 +78,21 @@ html {
   font-family: var(--font-body);
 }
 
-/* skeleton shimmer for loading states */
+/* Display type carries most of the brand difference: FreshKart sets bold and
+   tight, Loomcraft sets lighter and wider. */
+.font-display {
+  font-weight: var(--display-weight);
+}
+:root[data-brand="apparel"] .font-display {
+  letter-spacing: 0.005em;
+}
+
+/* Small caps-y labels: plain at FreshKart, wide-tracked at Loomcraft. */
+.brand-label {
+  letter-spacing: var(--label-tracking);
+  text-transform: var(--label-transform);
+}
+
 @keyframes pulse-soft {
   0%, 100% { opacity: 0.55; }
   50% { opacity: 0.9; }
@@ -66,9 +100,8 @@ html {
 .skeleton {
   animation: pulse-soft 1.4s ease-in-out infinite;
   background: var(--line);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-card-v);
 }
 
-/* thin scrollbars for category rails */
 .rail::-webkit-scrollbar { height: 6px; }
 .rail::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }

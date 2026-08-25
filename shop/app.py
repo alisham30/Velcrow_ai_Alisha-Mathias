@@ -333,14 +333,47 @@ def create_app() -> FastAPI:
             raise errors.NotOutOfStock(
                 f"'{item_id}' variant '{variant or '-'}' has {stock} in stock; add it to a cart instead",
                 product_id=item_id, variant=variant, in_stock=stock)
+        product = db.product(item_id)
+        assert product is not None
+        qty = int(body.get("qty", 1))  # optional; the spec payload implies a single unit
+        if qty <= 0:
+            raise errors.BadRequest("qty must be a positive integer")
         res_id = db.create_reservation(item_id, variant, body["contact_ref"], claims["jti"])
+        value = qty * product["price_paise"]
+        db.record_lost_demand(item_id, variant, qty, product["price_paise"],
+                              "out_of_stock_reserved", res_id)
         chainlog.append(shop_id, "reservation_created",
-                        f"reserved '{item_id}' variant '{variant or '-'}' for {body['contact_ref']} "
-                        f"(restock {restock_date or 'unscheduled'}) under mandate {claims['jti'][:8]}",
-                        {"res_id": res_id, "product_id": item_id, "variant": variant,
-                         "restock_date": restock_date, "jti": claims["jti"]})
-        return {"res_id": res_id, "product_id": item_id, "variant": variant,
-                "restock_date": restock_date, "status": "open"}
+                        f"reserved '{item_id}' variant '{variant or '-'}' x{qty} for "
+                        f"{body['contact_ref']} (restock {restock_date or 'unscheduled'}) under "
+                        f"mandate {claims['jti'][:8]}; {value} paise of demand recorded as lost "
+                        f"until restock",
+                        {"res_id": res_id, "product_id": item_id, "variant": variant, "qty": qty,
+                         "lost_value_paise": value, "restock_date": restock_date,
+                         "jti": claims["jti"]})
+        return {"res_id": res_id, "product_id": item_id, "product_name": product["name"],
+                "variant": variant, "qty": qty, "unit_price_paise": product["price_paise"],
+                "lost_value_paise": value, "restock_date": restock_date, "status": "open",
+                "contact_ref": body["contact_ref"]}
+
+    @app.get("/merchant/demand-ledger")
+    def demand_ledger() -> dict[str, Any]:
+        """Lost demand by item/variant with reason, plus the known restock date
+        (spec 6.1). Forecasting on top of this arrives with the autonomous
+        merchant agent in a later phase."""
+        rows: list[dict[str, Any]] = []
+        for r in db.demand_rows():
+            p = db.product(r["item_id"])
+            stock_row = db.stock_row(r["item_id"], r["variant"])
+            rows.append({
+                **r,
+                "product_name": p["name"] if p else r["item_id"],
+                "in_stock": stock_row[0] if stock_row else 0,
+                "restock_date": stock_row[1] if stock_row else None,
+                "reservations": db.reservations_for(r["item_id"], r["variant"]),
+            })
+        return {"shop_id": shop_id, "currency": "INR",
+                "total_lost_value_paise": sum(r["lost_value_paise"] for r in rows),
+                "rows": rows}
 
     # -- agent-readable surface (spec 6.6) ----------------------------------
 

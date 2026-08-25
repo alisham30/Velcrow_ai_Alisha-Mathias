@@ -3,7 +3,7 @@ import React from "react";
 export default function QtyStepper({ value, onChange, min = 1, disabled = false, compact = false }) {
   const size = compact ? "h-7 w-7 text-sm" : "h-9 w-9";
   return (
-    <div className="inline-flex items-center rounded-lg border border-line bg-card">
+    <div className="inline-flex items-center rounded-control border border-line bg-card">
       <button
         type="button"
         aria-label="decrease quantity"

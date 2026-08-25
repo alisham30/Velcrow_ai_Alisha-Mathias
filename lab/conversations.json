@@ -1,0 +1,302 @@
+{
+  "_comment": [
+    "Every case here is a phrasing that actually broke the agent at some point.",
+    "Assertions lean on cart state and tool choice, which are deterministic, and",
+    "use text only where the exact wording matters (a money figure, or a claim",
+    "about stock that must not be made). Prices come from the seeded catalogs.",
+    "SCOPE: these guard user-visible OUTCOMES. They are not a substitute for the unit tests in tests/test_agent_loop.py -- the model can route around a broken mechanism by choosing a different query, so a case here can pass while the mechanism underneath is broken. Verified: reverting the search fix fails two unit tests immediately but leaves shoppers-word-is-not-the-shops-word passing."
+  ],
+  "cases": [
+    {
+      "name": "acceptance-sentence",
+      "why": "The Phase 4 acceptance test. Must never regress.",
+      "shop": "grocery",
+      "turns": [
+        {
+          "say": "add 2 kg lemons under 100 rupees",
+          "expect": {
+            "must_call": [
+              "search_catalog",
+              "add_to_cart"
+            ],
+            "reply_contains": [
+              "₹88.00"
+            ]
+          }
+        }
+      ],
+      "cart": [
+        {
+          "item_id": "lemons-1kg",
+          "qty": 2
+        }
+      ]
+    },
+    {
+      "name": "unstated-quantity-asks",
+      "why": "Silently added 1 kg instead of asking how many.",
+      "shop": "grocery",
+      "turns": [
+        {
+          "say": "add lemons",
+          "expect": {
+            "must_not_call": [
+              "add_to_cart"
+            ]
+          }
+        }
+      ],
+      "cart": []
+    },
+    {
+      "name": "answer-the-quantity-question",
+      "why": "Asking is only useful if the answer is then acted on.",
+      "shop": "grocery",
+      "turns": [
+        {
+          "say": "add lemons",
+          "expect": {
+            "must_not_call": [
+              "add_to_cart"
+            ]
+          }
+        },
+        {
+          "say": "3 kg",
+          "expect": {
+            "must_call": [
+              "add_to_cart"
+            ],
+            "reply_contains": [
+              "₹132.00"
+            ]
+          }
+        }
+      ],
+      "cart": [
+        {
+          "item_id": "lemons-1kg",
+          "qty": 3
+        }
+      ]
+    },
+    {
+      "name": "bare-agreement-is-an-answer",
+      "why": "'okayy add' did not add; it re-asked the same question.",
+      "shop": "grocery",
+      "turns": [
+        {
+          "say": "1 kg basmati rice",
+          "expect": {
+            "must_not_call": [
+              "add_to_cart"
+            ]
+          }
+        },
+        {
+          "say": "okayy add",
+          "expect": {
+            "must_call": [
+              "add_to_cart"
+            ]
+          }
+        }
+      ],
+      "cart": [
+        {
+          "item_id": "basmati-5kg",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "a-question-never-mutates-the-cart",
+      "why": "'did u add' added a second pack, leaving the cart at x2.",
+      "shop": "grocery",
+      "turns": [
+        {
+          "say": "1 kg basmati rice"
+        },
+        {
+          "say": "okayy add",
+          "expect": {
+            "must_call": [
+              "add_to_cart"
+            ]
+          }
+        },
+        {
+          "say": "did u add",
+          "expect": {
+            "must_not_call": [
+              "add_to_cart",
+              "update_qty",
+              "remove_line"
+            ]
+          }
+        }
+      ],
+      "cart": [
+        {
+          "item_id": "basmati-5kg",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "shoppers-word-is-not-the-shops-word",
+      "why": "Answered 'no vegetables in the catalog' while tomatoes sat in it.",
+      "shop": "grocery",
+      "turns": [
+        {
+          "say": "okay what vegies you have",
+          "expect": {
+            "reply_contains": [
+              "tomato"
+            ],
+            "reply_excludes": [
+              "no vegetables",
+              "not have any",
+              "don't have any",
+              "do not have any",
+              "no vegetable"
+            ]
+          }
+        }
+      ],
+      "cart": []
+    },
+    {
+      "name": "genuine-absence-is-still-refused",
+      "why": "The catalog fallback must not make it claim to sell anything.",
+      "shop": "grocery",
+      "turns": [
+        {
+          "say": "do you sell laptops",
+          "expect": {
+            "must_not_call": [
+              "add_to_cart"
+            ]
+          }
+        }
+      ],
+      "cart": []
+    },
+    {
+      "name": "money-is-quoted-not-computed",
+      "why": "Said ₹329.80 when the cart held ₹3,298.00.",
+      "shop": "apparel",
+      "turns": [
+        {
+          "say": "add a medium indigo kurti",
+          "expect": {
+            "must_call": [
+              "add_to_cart"
+            ]
+          }
+        },
+        {
+          "say": "now add a large hoodie and tell me the total",
+          "expect": {
+            "reply_contains": [
+              "₹3,298.00"
+            ],
+            "reply_excludes": [
+              "₹329.80"
+            ]
+          }
+        }
+      ],
+      "cart": [
+        {
+          "item_id": "kurti-indigo-cotton",
+          "variant": "M",
+          "qty": 1
+        },
+        {
+          "item_id": "hoodie-fleece-grey",
+          "variant": "L",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "unstated-size-asks",
+      "why": "Picking someone's clothing size for them is worse than asking.",
+      "shop": "apparel",
+      "turns": [
+        {
+          "say": "add a kurti",
+          "expect": {
+            "must_not_call": [
+              "add_to_cart"
+            ]
+          }
+        }
+      ],
+      "cart": []
+    },
+    {
+      "name": "size-given-goes-straight-through",
+      "why": "Over-correcting the ask rule made it ask even when told.",
+      "shop": "apparel",
+      "turns": [
+        {
+          "say": "add a medium graphic tee",
+          "expect": {
+            "must_call": [
+              "add_to_cart"
+            ]
+          }
+        }
+      ],
+      "cart": [
+        {
+          "item_id": "tshirt-graphic-black",
+          "variant": "M",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "name": "out-of-stock-is-not-added",
+      "why": "The tool layer refuses; the agent must report, not invent stock.",
+      "shop": "apparel",
+      "turns": [
+        {
+          "say": "add a small indigo kurti",
+          "expect": {
+            "reply_contains": [
+              "stock"
+            ]
+          }
+        }
+      ],
+      "cart": []
+    },
+    {
+      "name": "phase-4-has-no-checkout",
+      "why": "It must say so plainly rather than pretending to pay.",
+      "shop": "grocery",
+      "turns": [
+        {
+          "say": "add 2 kg lemons under 100 rupees"
+        },
+        {
+          "say": "pay for it now",
+          "expect": {
+            "must_not_call": [
+              "add_to_cart"
+            ]
+          }
+        }
+      ],
+      "cart": [
+        {
+          "item_id": "lemons-1kg",
+          "qty": 2
+        }
+      ]
+    }
+  ]
+}

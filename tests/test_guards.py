@@ -53,6 +53,20 @@ def test_wallet_is_fully_typed():
                 assert a.annotation is not None, f"{node.name} arg '{a.arg}' lacks an annotation"
 
 
-def test_no_llm_imports_anywhere_in_phase_1():
-    offenders = [str(p.relative_to(REPO)) for p in _all_py_files() if _imports(p) & LLM_MODULES]
-    assert offenders == [], f"Phase 1 must contain no LLM code: {offenders}"
+LLM_MODULE = REPO / "agent" / "llm.py"
+
+
+def test_only_agent_llm_imports_the_llm_sdk():
+    """Spec 3: every LLM call is isolated in agent/llm.py, so a dead API can
+    be degraded in exactly one place."""
+    offenders = [str(p.relative_to(REPO)) for p in _all_py_files()
+                 if p != LLM_MODULE and _imports(p) & LLM_MODULES]
+    assert offenders == [], f"LLM SDK imported outside agent/llm.py: {offenders}"
+    assert _imports(LLM_MODULE) & LLM_MODULES  # and it really is the one that does
+
+
+def test_trust_core_has_no_llm_imports():
+    """Nothing on the money path may import an LLM (spec 0.6)."""
+    for rel in ("common/wallet.py", "common/mandate.py", "common/approval.py",
+                "common/chainlog.py", "shop/app.py", "shop/coupons.py", "agent/tools.py"):
+        assert not (_imports(REPO / rel) & LLM_MODULES), f"{rel} must not import an LLM"

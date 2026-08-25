@@ -73,12 +73,12 @@ export default function Checkout() {
     <main className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="font-display text-3xl font-bold">Checkout</h1>
       <p className="mt-1 text-muted">
-        No address forms, no card forms. Payment runs through your VelcrowAI mandate.
+        {brand.checkoutNote}
       </p>
 
       {error && <PaymentError error={error} onDismiss={() => setError(null)} />}
 
-      <section className="mt-8 rounded-xl border border-line bg-card">
+      <section className="mt-8 rounded-card border border-line bg-card">
         <h2 className="border-b border-line px-5 py-3 font-display text-lg font-semibold">
           Your order
         </h2>
@@ -108,7 +108,7 @@ export default function Checkout() {
           </div>
 
           {best && best.codes.length > 0 ? (
-            <div className="mt-3 rounded-lg bg-ok-soft px-4 py-3">
+            <div className="mt-3 rounded-control bg-ok-soft px-4 py-3">
               <p className="text-sm font-bold text-brand-deep">
                 Best coupon applied automatically: {best.codes.join(" + ")}
               </p>
@@ -118,13 +118,13 @@ export default function Checkout() {
               </p>
             </div>
           ) : (
-            <p className="mt-3 rounded-lg bg-paper px-4 py-3 text-sm text-muted">
+            <p className="mt-3 rounded-control bg-paper px-4 py-3 text-sm text-muted">
               No coupon applies to this basket yet.
             </p>
           )}
 
           {nearMiss && (
-            <div className="mt-3 rounded-lg border border-accent/40 bg-accent-soft px-4 py-3">
+            <div className="mt-3 rounded-control border border-accent/40 bg-accent-soft px-4 py-3">
               <p className="text-sm font-bold text-brand-deep">
                 Add {rupees(nearMiss.add_paise)} more and pay less overall
               </p>
@@ -148,14 +148,14 @@ export default function Checkout() {
       {stage === "browsing" && (
         <button
           onClick={startCheckout}
-          className="mt-6 w-full rounded-xl bg-brand py-4 font-semibold text-white hover:bg-brand-deep"
+          className="mt-6 w-full rounded-control bg-brand py-4 font-semibold text-white hover:bg-brand-deep"
         >
           Pay with VelcrowAI
         </button>
       )}
 
       {stage === "quoting" && !order && (
-        <p className="mt-6 rounded-xl border border-line bg-card py-4 text-center text-muted">
+        <p className="mt-6 rounded-card border border-line bg-card py-4 text-center text-muted">
           Locking your price…
         </p>
       )}
@@ -177,8 +177,8 @@ export default function Checkout() {
 
 function ApprovalSheet({ order, busy, onApprove, onCancel }) {
   return (
-    <section className="mt-6 rounded-xl border-2 border-brand bg-card p-5">
-      <p className="text-xs font-bold uppercase tracking-wider text-brand">Approval required</p>
+    <section className="mt-6 rounded-card border-2 border-brand bg-card p-5">
+      <p className="brand-label text-xs font-bold text-brand">Approval required</p>
       <h2 className="mt-1 font-display text-xl font-semibold">
         Approve this basket at {rupees(order.charge_amount)}?
       </h2>
@@ -187,7 +187,7 @@ function ApprovalSheet({ order, busy, onApprove, onCancel }) {
         signed over this basket alone and expires in five minutes.
       </p>
 
-      <ul className="mt-4 divide-y divide-line rounded-lg border border-line">
+      <ul className="mt-4 divide-y divide-line rounded-control border border-line">
         {order.line_items.map((li) => (
           <li key={`${li.item_id}-${li.variant}`} className="flex justify-between px-4 py-2 text-sm">
             <span>
@@ -214,14 +214,14 @@ function ApprovalSheet({ order, busy, onApprove, onCancel }) {
         <button
           onClick={onCancel}
           disabled={busy}
-          className="rounded-lg border border-line px-5 py-3 font-semibold text-muted hover:text-ink disabled:opacity-50"
+          className="rounded-control border border-line px-5 py-3 font-semibold text-muted hover:text-ink disabled:opacity-50"
         >
           Cancel
         </button>
         <button
           onClick={onApprove}
           disabled={busy}
-          className="flex-1 rounded-lg bg-brand py-3 font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
+          className="flex-1 rounded-control bg-brand py-3 font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
         >
           {busy ? "Paying…" : `Approve and pay ${rupees(order.charge_amount)}`}
         </button>
@@ -242,7 +242,7 @@ function PaymentError({ error, onDismiss }) {
     VIEW_COUPONS: "Review the coupons on this basket.",
   };
   return (
-    <div className="mt-6 rounded-xl border border-danger/40 bg-danger-soft p-5">
+    <div className="mt-6 rounded-card border border-danger/40 bg-danger-soft p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="font-display text-lg font-bold text-danger">Payment blocked</p>
@@ -267,7 +267,7 @@ function PaymentError({ error, onDismiss }) {
 function Receipt({ receipt, onDone }) {
   return (
     <main className="mx-auto max-w-2xl px-4 py-12">
-      <div className="rounded-xl border border-line bg-card p-8 text-center">
+      <div className="rounded-card border border-line bg-card p-8 text-center">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-ok-soft">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
@@ -299,7 +299,7 @@ function Receipt({ receipt, onDone }) {
 
         <button
           onClick={onDone}
-          className="mt-8 rounded-lg bg-brand px-6 py-3 font-semibold text-white hover:bg-brand-deep"
+          className="mt-8 rounded-control bg-brand px-6 py-3 font-semibold text-white hover:bg-brand-deep"
         >
           Continue shopping
         </button>

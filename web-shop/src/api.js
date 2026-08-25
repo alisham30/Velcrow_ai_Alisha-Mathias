@@ -39,6 +39,20 @@ async function request(base, path, { method = "GET", body, headers = {} } = {}) 
 }
 
 export const shop = {
+  // The storefront asks the shop what it supports rather than assuming
+  // (spec 6.6). Reservations and variant wording both come from here.
+  capabilities: () =>
+    request(brand.apiBase, "/agent/capabilities", {
+      method: "POST",
+      body: { capabilities: { reservations: true, discounts: true, human_approval: true } },
+    }).then((r) => r.capabilities),
+  reserve: (payload, mandateToken) =>
+    request(brand.apiBase, "/reserve", {
+      method: "POST",
+      body: payload,
+      headers: { Authorization: `Mandate ${mandateToken}` },
+    }),
+  demandLedger: () => request(brand.apiBase, "/merchant/demand-ledger"),
   catalog: () => request(brand.apiBase, "/catalog"),
   product: (id) => request(brand.apiBase, `/product/${id}`),
   createCart: () => request(brand.apiBase, "/cart", { method: "POST", body: {} }),

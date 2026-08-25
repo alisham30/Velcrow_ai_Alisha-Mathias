@@ -133,10 +133,10 @@ No other module imports the Razorpay SDK. A test enforces this.
 - `POST /order` — from a cart + mandate → `{txn_ref, charge_amount}`, holds stock
 - `GET /order/{txn_ref}` — feeds wallet check 4
 - `POST /confirm-payment`
-- `POST /reserve` — `{item_id, variant, contact_ref, mandate_jti}` for out-of-stock items. Capability-gated per shop config: FreshKart ships with `reservations: false` and answers `CAPABILITY_UNSUPPORTED`; Loomcraft has `reservations` + `restock_notify` enabled, and the never-cut stock-out → reserve → restock → comeback-sale mechanic (§7.2, Phase 6) runs there. This gating is what makes `POST /agent/capabilities` answer meaningfully differently for the two shops.
+- `POST /reserve` — `{item_id, variant, contact_ref, mandate_jti, qty?}` for out-of-stock items. `qty` is optional and defaults to 1; it exists so the reservation can be valued in the demand ledger. Taking a reservation writes a `demand_ledger` row (item, variant, qty, unit price, value in paise, reason, reservation id) — that table is what `/merchant/demand-ledger` reads. Capability-gated per shop config: FreshKart ships with `reservations: false` and answers `CAPABILITY_UNSUPPORTED`; Loomcraft has `reservations` + `restock_notify` enabled, and the never-cut stock-out → reserve → restock → comeback-sale mechanic (§7.2, Phase 6) runs there. This gating is what makes `POST /agent/capabilities` answer meaningfully differently for the two shops.
 - `POST /admin/restock` — adds stock AND fires reservation callbacks to :8003
 - `GET /merchant/summary` — revenue, orders, AOV, deals rescued, coupon claim rate, **assisted vs unassisted** split
-- `GET /merchant/demand-ledger` — lost demand by item/variant with reason + restock forecast
+- `GET /merchant/demand-ledger` — lost demand by item/variant with reason + restock forecast. Backed by the `demand_ledger` table written at `/reserve` time; returns aggregated rows (lost units, lost value in paise, reason, current stock, known restock date, the reservations behind each row) sorted worst-loss first. Forecasting on top of this arrives with the autonomous merchant agent (§7.5)
 - `POST /admin/cheat-mode` — when on, `/order` returns an inflated `charge_amount` (the villain demo)
 
 Config per shop: `shop/configs/grocery.yaml`, `shop/configs/apparel.yaml` — brand name, theme colors, catalog file, coupon set, whether variants are sizes (apparel) or pack sizes (grocery).
