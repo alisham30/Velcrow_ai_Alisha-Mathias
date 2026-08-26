@@ -130,6 +130,14 @@ class ShopDB:
                 c.execute("ALTER TABLE demand_ledger ADD COLUMN contact_key TEXT NOT NULL DEFAULT ''")
             if "notified_ts" not in dl_cols:
                 c.execute("ALTER TABLE demand_ledger ADD COLUMN notified_ts REAL")
+            # When the shopper comes back and buys, the refusal is over. Without
+            # this the ledger never closed: a sale we had actually recovered went
+            # on being counted as demand, at a shop that takes no reservations.
+            if "converted_ts" not in dl_cols:
+                c.execute("ALTER TABLE demand_ledger ADD COLUMN converted_ts REAL")
+            if "converted_txn" not in dl_cols:
+                c.execute("ALTER TABLE demand_ledger ADD COLUMN converted_txn TEXT NOT NULL"
+                          " DEFAULT ''")
             c.execute(
                 "CREATE TABLE IF NOT EXISTS runtime_coupons ("
                 "  code TEXT PRIMARY KEY, coupon TEXT NOT NULL,"
@@ -298,9 +306,66 @@ class ShopDB:
                               (r["res_id"],))
                     converted.append(r["res_id"])
         if converted:
-            with self._conn() as c:
-                c.execute("UPDATE orders SET rescued = 1 WHERE txn_ref = ?", (order["txn_ref"],))
+            self.mark_order_rescued(order["txn_ref"])
         return converted
+
+    def mark_order_rescued(self, txn_ref: str) -> None:
+        """One flag, one meaning: this order recovered a sale the shop had
+        already refused. Set from the reservation or the ledger, never from
+        the caller's say-so."""
+        with self._conn() as c:
+            c.execute("UPDATE orders SET rescued = 1 WHERE txn_ref = ?", (txn_ref,))
+
+    def convert_demand(self, order: dict[str, Any]) -> list[dict[str, Any]]:
+        """Close ledger rows this paid basket answers, and report what they were.
+
+        `convert_reservations` only sees the reservations table, so at a shop
+        that cannot hold a unit - FreshKart takes no reservations - a shopper
+        who was refused, told when it landed, and came back and paid produced a
+        rescued sale that nothing recorded. The ledger went on reporting their
+        money as lost while it was sitting in the orders table.
+
+        Matched the same way a reservation is: same item and variant, same
+        shopper (by ref or by contact), so the claim is derived from what
+        happened rather than asserted by whoever placed the order.
+        """
+        refs = {order.get("shopper_ref") or ""} | set(
+            self.refs_for_contact(order.get("contact_key") or ""))
+        refs.discard("")
+        contact_key = order.get("contact_key") or ""
+        if not refs and not contact_key:
+            return []
+
+        closed: list[dict[str, Any]] = []
+        with self._conn() as c:
+            for li in order["line_items"]:
+                clauses, params = [], [li["item_id"], str(li.get("variant") or "")]
+                if refs:
+                    clauses.append(f"shopper_ref IN ({','.join('?' * len(refs))})")
+                    params.extend(sorted(refs))
+                if contact_key:
+                    clauses.append("contact_key = ?")
+                    params.append(contact_key)
+                rows = c.execute(
+                    "SELECT id, qty, value_paise FROM demand_ledger WHERE item_id = ?"
+                    " AND variant = ? AND converted_ts IS NULL"
+                    f" AND ({' OR '.join(clauses)}) ORDER BY created_ts", params).fetchall()
+                # Only as much as this basket actually supplies. Buying 1 of
+                # something you were refused 4 of recovers one unit of demand,
+                # not the whole refusal.
+                remaining = int(li.get("qty", 0))
+                for r in rows:
+                    if remaining <= 0:
+                        break
+                    if int(r["qty"]) > remaining:
+                        continue
+                    c.execute("UPDATE demand_ledger SET converted_ts = ?, converted_txn = ?"
+                              " WHERE id = ?", (time.time(), order["txn_ref"], r["id"]))
+                    remaining -= int(r["qty"])
+                    closed.append({"id": int(r["id"]), "item_id": li["item_id"],
+                                   "variant": str(li.get("variant") or ""),
+                                   "qty": int(r["qty"]), "value_paise": int(r["value_paise"])})
+        return closed
 
     def summary(self) -> dict[str, Any]:
         """What this merchant's console reports (spec 6.1). Paid orders only -
@@ -499,6 +564,7 @@ class ShopDB:
             rows = c.execute(
                 "SELECT id, qty, unit_price_paise, shopper_ref, contact_key FROM demand_ledger"
                 " WHERE item_id = ? AND variant = ? AND notified_ts IS NULL"
+                " AND converted_ts IS NULL"
                 " AND res_id IS NULL AND (shopper_ref != '' OR contact_key != '')"
                 " ORDER BY created_ts", (item_id, variant)).fetchall()
         return [dict(r) for r in rows]
@@ -509,7 +575,8 @@ class ShopDB:
         with self._conn() as c:
             row = c.execute(
                 "SELECT COUNT(*) n FROM demand_ledger WHERE item_id = ? AND variant = ?"
-                " AND notified_ts IS NOT NULL", (item_id, variant)).fetchone()
+                " AND notified_ts IS NOT NULL AND converted_ts IS NULL",
+                (item_id, variant)).fetchone()
         return int(row["n"])
 
     def mark_demand_notified(self, row_id: int) -> None:
@@ -517,11 +584,44 @@ class ShopDB:
             c.execute("UPDATE demand_ledger SET notified_ts = ? WHERE id = ?",
                       (time.time(), row_id))
 
+    def mark_demand_notified_for_reservation(self, res_id: str) -> None:
+        """A reservation and its ledger row describe one refusal, so telling the
+        shopper settles both."""
+        with self._conn() as c:
+            c.execute("UPDATE demand_ledger SET notified_ts = ? WHERE res_id = ?"
+                      " AND notified_ts IS NULL", (time.time(), res_id))
+
     def demand_rows(self) -> list[dict[str, Any]]:
+        """Refused demand, split by whether anything was done about it.
+
+        The ledger never settled, so a refusal restocked and acted on a week
+        ago still read as money currently being lost - which misled the console
+        and, worse, the growth agent reasoning from it. History is kept; the
+        rows now say which of three things they are, and the caller decides
+        which to act on:
+
+          outstanding  still cannot be served. This is the live problem.
+          told         back in stock and the shopper was told, but they have
+                       not bought yet. A second chance, not yet money.
+          bought back  the shopper returned and paid. The refusal is closed
+                       and this is the only row that is genuinely revenue.
+          lapsed       back in stock but nobody could be told - the stock
+                       problem is fixed, the sale is still gone.
+        """
         with self._conn() as c:
             rows = c.execute(
                 "SELECT item_id, variant, reason, SUM(qty) AS lost_units,"
                 " SUM(value_paise) AS lost_value_paise, COUNT(*) AS events,"
+                " SUM(CASE WHEN notified_ts IS NOT NULL AND converted_ts IS NULL THEN qty"
+                "   ELSE 0 END) AS notified_units,"
+                " SUM(CASE WHEN notified_ts IS NOT NULL AND converted_ts IS NULL THEN value_paise"
+                "   ELSE 0 END) AS notified_value_paise,"
+                " SUM(CASE WHEN converted_ts IS NULL AND notified_ts IS NULL"
+                "   AND (shopper_ref != '' OR contact_key != '' OR res_id IS NOT NULL)"
+                "   THEN qty ELSE 0 END) AS reachable_units,"
+                " SUM(CASE WHEN converted_ts IS NOT NULL THEN qty ELSE 0 END) AS bought_back_units,"
+                " SUM(CASE WHEN converted_ts IS NOT NULL THEN value_paise ELSE 0 END)"
+                "   AS bought_back_value_paise,"
                 " GROUP_CONCAT(res_id) AS res_ids"
                 " FROM demand_ledger GROUP BY item_id, variant, reason"
                 " ORDER BY lost_value_paise DESC"

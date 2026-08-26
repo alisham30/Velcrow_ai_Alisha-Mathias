@@ -26,3 +26,6 @@ dist/
 .vscode/
 .idea/
 Thumbs.db
+
+# demo resets keep a copy of ./data here
+.backups/
