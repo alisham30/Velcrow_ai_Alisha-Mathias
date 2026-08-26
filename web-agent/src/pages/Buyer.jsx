@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { buyer as api, ApiError } from "../api.js";
 import { rupees } from "../money.js";
 
@@ -224,17 +224,25 @@ export default function Buyer() {
             <p className="text-xs text-muted">Buying for you, across shops</p>
           </div>
         </div>
-        {run && (
-          <button
-            onClick={() => {
-              setRun(null);
-              navigate("/");
-            }}
-            className="border border-line px-3 py-1.5 text-xs font-semibold hover:border-ink"
+        <div className="flex items-center gap-2">
+          {run && (
+            <button
+              onClick={() => {
+                setRun(null);
+                navigate("/");
+              }}
+              className="border border-line px-3 py-1.5 text-xs font-semibold hover:border-ink"
+            >
+              New search
+            </button>
+          )}
+          <Link
+            to="/audit"
+            className="border border-line px-3 py-1.5 text-xs font-semibold text-muted hover:border-ink hover:text-ink"
           >
-            New search
-          </button>
-        )}
+            Audit
+          </Link>
+        </div>
       </header>
 
       {!run && (

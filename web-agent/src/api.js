@@ -51,4 +51,16 @@ export const buyer = {
   trust: () => request("/buyer/trust"),
 };
 
+// The evidence room (spec 9). Read-only apart from the tamper button, which
+// exists so the chain can be seen breaking rather than described as breaking.
+export const audit = {
+  chains: (limit = 30) => request(`/audit/chains?limit=${limit}`),
+  verify: () => request("/audit/verify"),
+  tamper: (actor, index) =>
+    request("/audit/tamper", { method: "POST", body: { actor, index } }),
+  dispute: (txnRef) => request(`/audit/dispute/${encodeURIComponent(txnRef)}`),
+  traces: () => request("/audit/traces"),
+  revenueLab: () => request("/audit/revenue-lab"),
+};
+
 export { AGENT };

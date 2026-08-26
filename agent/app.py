@@ -496,6 +496,175 @@ def create_app() -> FastAPI:
     def buyer_trust() -> dict[str, Any]:
         return {"scores": trust.all_scores(), "recent": trust.history(limit=15)}
 
+    # -- the evidence room (spec 9) -----------------------------------------
+
+    AUDIT_ACTORS = ["buyer", *sorted(s["shop_id"] for s in INSTALLED_SHOPS.values())]
+
+    @app.get("/audit/chains")
+    def audit_chains(actor: str = "", limit: int = 40) -> dict[str, Any]:
+        """Both chain logs, tailing. Every entry carries its own `why`, which
+        is the whole point: a hash proves nothing was altered, the why says
+        what happened and on whose instruction."""
+        wanted = [actor] if actor else AUDIT_ACTORS
+        return {"actors": AUDIT_ACTORS,
+                "chains": {a: chainlog.tail(a, limit) for a in wanted}}
+
+    @app.get("/audit/verify")
+    def audit_verify() -> dict[str, Any]:
+        """Recompute every hash and link, and name the first bad index."""
+        out: dict[str, Any] = {}
+        for a in AUDIT_ACTORS:
+            ok, bad = chainlog.verify_chain(a)
+            out[a] = {"ok": ok, "first_bad_index": bad,
+                      "entries": len(chainlog.tail(a, 10_000))}
+        return {"all_ok": all(v["ok"] for v in out.values()), "chains": out}
+
+    @app.post("/audit/tamper")
+    async def audit_tamper(request: Request) -> dict[str, Any]:
+        """Edit one entry in place so the chain can be seen breaking.
+
+        Deliberately crude and deliberately loud: it rewrites history the way
+        an attacker with disk access would, which is exactly the case a hash
+        chain is meant to catch. Nothing in the running system calls this - it
+        exists so the break can be demonstrated rather than described.
+        """
+        body = await json_body(request)
+        actor = str(body.get("actor") or "buyer")
+        if actor not in AUDIT_ACTORS:
+            raise errors.BadRequest(f"unknown actor '{actor}'")
+        path = chainlog.chain_path(actor)
+        if not path.exists():
+            raise errors.NotFound(f"no chain for '{actor}'", actor=actor)
+
+        lines = [l for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
+        if len(lines) < 2:
+            raise errors.BadRequest(f"chain '{actor}' is too short to tamper with")
+        index = int(body.get("index", len(lines) // 2))
+        index = max(0, min(index, len(lines) - 1))
+
+        entry = json.loads(lines[index])
+        before = entry.get("why", "")
+        entry["why"] = str(body.get("why") or (before + " [ALTERED AFTER THE FACT]"))
+        lines[index] = json.dumps(entry, ensure_ascii=True)
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        ok, bad = chainlog.verify_chain(actor)
+        return {"actor": actor, "tampered_index": index, "was": before,
+                "now": entry["why"], "verifies": ok, "first_bad_index": bad}
+
+    @app.get("/audit/dispute/{txn_ref}")
+    def audit_dispute(txn_ref: str) -> dict[str, Any]:
+        """Put the buyer's account of one transaction beside the shop's.
+
+        Nobody has standardised what happens when two agents disagree about
+        what was owed (spec 13). This is a working answer: both sides wrote
+        their own record independently, both are tamper-evident, and the
+        mismatch is named with the indices that prove it.
+        """
+        def entries_for(actor: str) -> list[dict[str, Any]]:
+            return [e for e in chainlog.tail(actor, 10_000)
+                    if txn_ref in json.dumps(e.get("data", {}))
+                    or txn_ref in e.get("why", "")]
+
+        buyer_side = entries_for("buyer")
+        shop_side: list[dict[str, Any]] = []
+        shop_id = ""
+        for s in INSTALLED_SHOPS.values():
+            found = entries_for(s["shop_id"])
+            if found:
+                shop_side, shop_id = found, s["shop_id"]
+                break
+        if not buyer_side and not shop_side:
+            raise errors.NotFound(f"no chain entries mention '{txn_ref}'", txn_ref=txn_ref)
+
+        def amount_in(entries: list[dict[str, Any]]) -> tuple[int | None, int | None]:
+            for e in entries:
+                for key in ("amount_paise", "charge_amount", "approved_amount_paise"):
+                    if isinstance(e.get("data", {}).get(key), int):
+                        return e["data"][key], e["i"]
+            return None, None
+
+        buyer_amount, buyer_at = amount_in(buyer_side)
+        shop_amount, shop_at = amount_in(shop_side)
+
+        findings: list[str] = []
+        agreed = True
+        if buyer_amount is not None and shop_amount is not None:
+            if buyer_amount != shop_amount:
+                agreed = False
+                findings.append(
+                    f"The buyer recorded {money.rupees(buyer_amount)} at buyer entry "
+                    f"#{buyer_at}; {shop_id} recorded {money.rupees(shop_amount)} at "
+                    f"{shop_id} entry #{shop_at}. The difference is "
+                    f"{money.rupees(abs(buyer_amount - shop_amount))}, and the side that "
+                    "moved is the one whose figure the human never approved.")
+            else:
+                findings.append(
+                    f"Both sides recorded {money.rupees(buyer_amount)} - buyer entry "
+                    f"#{buyer_at}, {shop_id} entry #{shop_at}.")
+        refusals = [e for e in buyer_side if "refused" in e["event"] or "blocked" in e["event"]]
+        for r in refusals:
+            agreed = False
+            findings.append(f"Buyer entry #{r['i']} records a refusal: {r['why']}")
+        if not findings:
+            findings.append("Both chains mention this transaction but neither records an amount.")
+
+        return {
+            "txn_ref": txn_ref, "shop_id": shop_id, "agreed": agreed,
+            "findings": findings,
+            "buyer": [{"i": e["i"], "event": e["event"], "why": e["why"], "ts": e["ts"]}
+                      for e in buyer_side],
+            "shop": [{"i": e["i"], "event": e["event"], "why": e["why"], "ts": e["ts"]}
+                     for e in shop_side],
+        }
+
+    @app.get("/audit/traces")
+    def audit_traces(limit: int = 12) -> dict[str, Any]:
+        """Full turns: what the agent chose, in order, and how many rounds it
+        took (spec 6.5). Read from the chain rather than memory, so a trace
+        outlives the process that produced it.
+        """
+        turns: dict[str, dict[str, Any]] = {}
+        for e in chainlog.tail("buyer", 2000):
+            run_id = e.get("data", {}).get("run_id")
+            if not run_id:
+                continue
+            turn = turns.setdefault(run_id, {"run_id": run_id, "asked": None,
+                                             "shop_id": e["data"].get("shop_id"),
+                                             "steps": [], "ts": e["ts"]})
+            if e["event"] == "agent_turn_started":
+                turn["asked"] = e["why"].split(": ", 1)[-1]
+                turn["ts"] = e["ts"]
+            elif e["event"] == "agent_tool_call":
+                turn["steps"].append({
+                    "i": e["i"], "tool": e["data"].get("tool"),
+                    "args": e["data"].get("args", {}), "ok": e["data"].get("ok"),
+                    "latency_ms": e["data"].get("latency_ms"),
+                    "why": e["why"],
+                })
+        ordered = sorted(turns.values(), key=lambda t: t["ts"], reverse=True)
+        return {"turns": [t for t in ordered if t["asked"]][:limit]}
+
+    @app.get("/audit/revenue-lab")
+    def audit_revenue_lab() -> dict[str, Any]:
+        """The measured claim (spec 9): 20 scripted goals, shopped twice.
+
+        Imported lazily because it reads both shops' catalogs, which is a
+        cross-shop analysis this service does not otherwise do. It is a lab
+        tool for the evidence room, not part of the buying path.
+        """
+        from lab import revenue_lab
+
+        result = revenue_lab.run()
+        for side in ("without", "with_agent"):
+            s = result[side]
+            s["revenue_display"] = money.rupees(s["revenue"])
+            s["aov_display"] = money.rupees(s["aov"])
+            s["discount_display"] = money.rupees(s["discount"])
+            s["rescued_revenue_display"] = money.rupees(s["rescued_revenue"])
+        result["lift_display"] = money.rupees(result["lift_paise"])
+        return result
+
     @app.post("/mandate", status_code=201)
     async def issue_mandate(request: Request) -> dict[str, Any]:
         body = await json_body(request)
