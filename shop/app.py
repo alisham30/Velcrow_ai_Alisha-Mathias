@@ -451,6 +451,45 @@ def create_app() -> FastAPI:
 
     # -- reservations -------------------------------------------------------
 
+    def take_reservation(item_id: str, variant: str, qty: int, contact_ref: str,
+                         shopper_ref: str, mandate_jti: str,
+                         restock_date: str | None) -> dict[str, Any]:
+        """Hold `qty` units the shop cannot supply right now, and value the loss.
+
+        Shared by /reserve and the fulfil split below so a reservation means
+        the same thing however it was taken, and the demand ledger is written
+        exactly once per refusal.
+        """
+        product = db.product(item_id)
+        assert product is not None
+        # A reservation is the cheapest place to establish the shopper key,
+        # since a contact is being asked for anyway (spec 7.3).
+        try:
+            contact_key = contact.normalise(contact_ref)
+        except contact.InvalidContact:
+            contact_key = ""
+        if contact_key:
+            db.link_shopper(contact_key, shopper_ref, contact.display(contact_ref))
+        res_id = db.create_reservation(item_id, variant, contact_ref, mandate_jti,
+                                       shopper_ref=shopper_ref, qty=qty,
+                                       contact_key=contact_key)
+        value = qty * product["price_paise"]
+        db.record_lost_demand(item_id, variant, qty, product["price_paise"],
+                              "out_of_stock_reserved", res_id)
+        chainlog.append(shop_id, "reservation_created",
+                        f"reserved '{item_id}' variant '{variant or '-'}' x{qty} for "
+                        f"{contact_ref or shopper_ref or 'an unidentified shopper'} "
+                        f"(restock {restock_date or 'unscheduled'}) under mandate "
+                        f"{mandate_jti[:8]}; {value} paise of demand recorded as lost "
+                        f"until restock",
+                        {"res_id": res_id, "product_id": item_id, "variant": variant, "qty": qty,
+                         "lost_value_paise": value, "restock_date": restock_date,
+                         "jti": mandate_jti})
+        return {"res_id": res_id, "product_id": item_id, "product_name": product["name"],
+                "variant": variant, "qty": qty, "unit_price_paise": product["price_paise"],
+                "lost_value_paise": value, "restock_date": restock_date, "status": "open",
+                "contact_ref": contact_ref}
+
     @app.post("/reserve", status_code=201)
     async def reserve(request: Request) -> dict[str, Any]:
         if not caps.get("reservations"):
@@ -464,43 +503,93 @@ def create_app() -> FastAPI:
             raise errors.NotFound(f"no such product/variant '{item_id}'/'{variant or '-'}'",
                                   product_id=item_id, variant=variant)
         stock, restock_date = row
-        if stock > 0:
-            raise errors.NotOutOfStock(
-                f"'{item_id}' variant '{variant or '-'}' has {stock} in stock; add it to a cart instead",
-                product_id=item_id, variant=variant, in_stock=stock)
-        product = db.product(item_id)
-        assert product is not None
         qty = int(body.get("qty", 1))  # optional; the spec payload implies a single unit
         if qty <= 0:
             raise errors.BadRequest("qty must be a positive integer")
-        # A reservation already asks for a contact, so it is the cheapest place
-        # to establish the shopper key - the shopper is not asked twice.
-        res_shopper_ref = str(body.get("shopper_ref") or "")
-        try:
-            res_contact_key = contact.normalise(body["contact_ref"])
-        except contact.InvalidContact:
-            res_contact_key = ""
-        if res_contact_key:
-            db.link_shopper(res_contact_key, res_shopper_ref,
-                            contact.display(body["contact_ref"]))
-        res_id = db.create_reservation(item_id, variant, body["contact_ref"], claims["jti"],
-                                       shopper_ref=res_shopper_ref, qty=qty,
-                                       contact_key=res_contact_key)
-        value = qty * product["price_paise"]
-        db.record_lost_demand(item_id, variant, qty, product["price_paise"],
-                              "out_of_stock_reserved", res_id)
-        chainlog.append(shop_id, "reservation_created",
-                        f"reserved '{item_id}' variant '{variant or '-'}' x{qty} for "
-                        f"{body['contact_ref']} (restock {restock_date or 'unscheduled'}) under "
-                        f"mandate {claims['jti'][:8]}; {value} paise of demand recorded as lost "
-                        f"until restock",
-                        {"res_id": res_id, "product_id": item_id, "variant": variant, "qty": qty,
-                         "lost_value_paise": value, "restock_date": restock_date,
-                         "jti": claims["jti"]})
-        return {"res_id": res_id, "product_id": item_id, "product_name": product["name"],
-                "variant": variant, "qty": qty, "unit_price_paise": product["price_paise"],
-                "lost_value_paise": value, "restock_date": restock_date, "status": "open",
-                "contact_ref": body["contact_ref"]}
+        # You may reserve only what this shop cannot supply. Being out of stock
+        # entirely is the common case, but wanting 16 of something with 12 on
+        # the shelf is the same refusal for the 4 - and refusing to record it
+        # was throwing that demand away.
+        if stock >= qty:
+            raise errors.NotOutOfStock(
+                f"'{item_id}' variant '{variant or '-'}' has {stock} in stock, which covers the "
+                f"{qty} asked for; add them to a cart instead",
+                product_id=item_id, variant=variant, in_stock=stock)
+        return take_reservation(item_id, variant, qty, str(body.get("contact_ref") or ""),
+                                str(body.get("shopper_ref") or ""), claims["jti"], restock_date)
+
+    @app.post("/cart/{cart_id}/fulfil")
+    async def fulfil(cart_id: str, request: Request) -> dict[str, Any]:
+        """Take as much of a request as the shelf allows, and hold the rest.
+
+        Asking for 16 when 12 exist used to be a flat refusal, so the shopper
+        got nothing and the merchant lost all 16. This adds the 12 and reserves
+        the 4, in one place that both the storefront and the agent call, so the
+        split cannot drift between them.
+
+        Where reservations are not supported the shortfall is still valued and
+        written to the demand ledger - the merchant should see what they could
+        not sell even when nobody can be told it is coming back.
+        """
+        body = await json_body(request)
+        claims = require_mandate(request)
+        if not db.cart_exists(cart_id):
+            raise errors.NotFound(f"no such cart '{cart_id}'", cart_id=cart_id)
+
+        item_id, variant = body["item_id"], str(body.get("variant") or "")
+        qty = int(body.get("qty", 1))
+        if qty <= 0:
+            raise errors.BadRequest("qty must be a positive integer")
+        product = db.product(item_id)
+        if product is None:
+            raise errors.NotFound(f"no such product '{item_id}'", product_id=item_id)
+        row = db.stock_row(item_id, variant)
+        if row is None:
+            raise errors.NotFound(f"product '{item_id}' has no variant '{variant or '-'}'",
+                                  product_id=item_id, variant=variant)
+        stock, restock_date = row
+
+        # What is already in this basket counts against the shelf. Otherwise
+        # adding 1 and then 12 more leaves 13 in a cart backed by 12 units, and
+        # the overselling only surfaces at checkout.
+        already = sum(l["qty"] for l in db.cart_items(cart_id)
+                      if l["item_id"] == item_id and (l["variant"] or "") == variant)
+        capacity = max(stock - already, 0)
+        added = min(qty, capacity)
+        shortfall = qty - added
+        if added:
+            db.upsert_line(cart_id, item_id, variant, added)
+
+        reservation, reserved = None, 0
+        if shortfall and caps.get("reservations"):
+            reservation = take_reservation(
+                item_id, variant, shortfall, str(body.get("contact_ref") or ""),
+                str(body.get("shopper_ref") or ""), claims["jti"], restock_date)
+            reserved = shortfall
+        elif shortfall:
+            db.record_lost_demand(item_id, variant, shortfall, product["price_paise"],
+                                  "out_of_stock_unreservable")
+            chainlog.append(shop_id, "demand_lost",
+                            f"{shortfall} x '{item_id}' {variant or '-'} could not be supplied "
+                            f"and this shop takes no reservations; "
+                            f"{shortfall * product['price_paise']} paise recorded as lost",
+                            {"product_id": item_id, "variant": variant, "qty": shortfall})
+
+        return {
+            "cart": cart_view(cart_id),
+            "product_name": product["name"],
+            "variant": variant,
+            "requested": qty,
+            "added": added,
+            "shortfall": shortfall,
+            "reserved": reserved,
+            "reservation": reservation,
+            "in_stock_now": max(stock - already - added, 0),
+            "already_in_cart": already,
+            "restock_date": restock_date,
+            "unit_price_paise": product["price_paise"],
+            "can_reserve": bool(caps.get("reservations")),
+        }
 
     @app.post("/admin/restock")
     async def admin_restock(request: Request) -> dict[str, Any]:

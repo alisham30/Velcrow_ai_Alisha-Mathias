@@ -30,8 +30,8 @@ def shop_ctx(freshkart, monkeypatch):
         def get(self, path: str):
             return freshkart.get(path)
 
-        def post(self, path: str, json=None):
-            return freshkart.post(path, json=json)
+        def post(self, path: str, json=None, headers=None):
+            return freshkart.post(path, json=json, headers=headers)
 
         def patch(self, path: str, json=None):
             return freshkart.patch(path, json=json)
@@ -44,8 +44,12 @@ def shop_ctx(freshkart, monkeypatch):
             "cart_id": cart_id, "client": freshkart}
 
 
+def _token() -> str:
+    return mandate.issue(500000, 300000, ["freshkart"])
+
+
 def _claims() -> dict[str, Any]:
-    return mandate.verify(mandate.issue(500000, 300000, ["freshkart"]))
+    return mandate.verify(_token())
 
 
 def _scripted(*turns):
@@ -62,8 +66,11 @@ def _scripted(*turns):
 
 
 def _run(run, shop_ctx, text, claims=None):
+    # the shop verifies the mandate itself before touching stock, so the token
+    # has to travel with the turn as it does in the real service
+    token = _token()
     asyncio.run(runtime.run_turn(run, shop_ctx["shop"], shop_ctx["cart_id"], text, [],
-                                 claims or _claims()))
+                                 claims or mandate.verify(token), mandate_token=token))
 
 
 def test_loop_executes_tools_then_stops_on_a_text_answer(shop_ctx, monkeypatch):
@@ -199,7 +206,8 @@ def test_tool_results_carry_preformatted_money(shop_ctx):
     decimal place once). Every amount it can quote is preformatted for it."""
     from common.money import rupees
 
-    ctx = {"shop_url": "http://testshop", "shop_id": "freshkart", "cart_id": shop_ctx["cart_id"]}
+    ctx = {"shop_url": "http://testshop", "shop_id": "freshkart", "cart_id": shop_ctx["cart_id"],
+           "mandate_token": _token()}   # the shop verifies it before touching stock
     found = tools.search_catalog(ctx, query="lemons")
     assert found["matches"][0]["price_display"] == rupees(4400)
 

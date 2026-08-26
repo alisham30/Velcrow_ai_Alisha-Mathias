@@ -108,15 +108,33 @@ def _savings(ctx: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _availability(stock: int) -> str:
+    if stock <= 0:
+        return "out of stock"
+    return "only a few left" if stock <= 5 else "in stock"
+
+
 def _public_stock(p: dict[str, Any]) -> dict[str, Any]:
+    """What the model is told about supply - deliberately NOT a number.
+
+    Given an exact count the model quietly lowers the shopper's request to
+    match it ("add 16" became add_to_cart(qty=5) every time), and the shop
+    then never learns the rest was wanted, so the shortfall is never reserved
+    and the merchant loses that demand. How many can actually be supplied is
+    the shop's decision, made in `fulfil`; the model's job is to pass on what
+    the shopper asked for. The exact figures come back afterwards, from the
+    shop, in the shortfall it reports.
+    """
     if p.get("variants"):
         return {
             "variants": [
-                {"label": v["label"], "stock": v["stock"], **({"restock_date": v["restock_date"]} if v.get("restock_date") else {})}
+                {"label": v["label"], "availability": _availability(int(v["stock"])),
+                 **({"restock_date": v["restock_date"]} if v.get("restock_date") else {})}
                 for v in p["variants"]
             ]
         }
-    return {"stock": p.get("stock", 0), **({"restock_date": p["restock_date"]} if p.get("restock_date") else {})}
+    return {"availability": _availability(int(p.get("stock", 0))),
+            **({"restock_date": p["restock_date"]} if p.get("restock_date") else {})}
 
 
 # -- tools ------------------------------------------------------------------
@@ -212,16 +230,65 @@ def add_to_cart(ctx: dict[str, Any], item_id: str, qty: int, variant: str | None
             f"refusing to add {qty} units in one step; the per-call limit is {MAX_QTY_PER_CALL}",
             "QTY_LIMIT",
         )
+    # Take what the shelf allows and hold the rest, rather than refusing the
+    # whole request (spec 7.2). Asking for 16 when 12 exist used to add
+    # nothing, and the merchant lost all 16.
     with _client(ctx["shop_url"]) as c:
-        resp = c.patch(
-            f"/cart/{ctx['cart_id']}",
-            json={"op": "add", "item_id": item_id, "variant": variant or "", "qty": qty},
+        resp = c.post(
+            f"/cart/{ctx['cart_id']}/fulfil",
+            json={"item_id": item_id, "variant": variant or "", "qty": qty,
+                  "contact_ref": ctx.get("contact_ref") or "",
+                  "shopper_ref": ctx.get("shopper_ref") or ""},
+            headers={"Authorization": f"Mandate {ctx.get('mandate_token', '')}"},
         )
     if resp.status_code != 200:
         raise _shop_error(resp)
-    summary = _cart_summary(resp.json())
-    summary["added"] = {"item_id": item_id, "variant": variant or "", "qty": qty}
+    result = resp.json()
+
+    if not result["added"] and not result["reserved"]:
+        # Nothing went in and nothing could be held: the shopper got nothing,
+        # so this is a refusal however politely the shop phrased it.
+        back = (f", back {result['restock_date']}" if result.get("restock_date") else "")
+        raise ToolError(
+            f"'{result['product_name']}'{' ' + variant if variant else ''} has "
+            f"{result['in_stock_now']} in stock, {qty} requested{back}"
+            + ("; this shop cannot hold any" if not result["can_reserve"] else ""),
+            "OUT_OF_STOCK")
+
+    summary = _cart_summary(result["cart"])
+    summary["added"] = {"item_id": item_id, "variant": variant or "",
+                        "qty": result["added"], "requested": qty}
     summary["savings"] = _savings(ctx)
+
+    if result["shortfall"]:
+        short = result["shortfall"]
+        summary["shortfall"] = {
+            "requested": qty, "added": result["added"], "short_by": short,
+            "reserved": result["reserved"],
+            "restock_date": result.get("restock_date"),
+            "value_display": _rupees(short * int(result["unit_price_paise"])),
+        }
+        # The wording has to match which of these actually happened. "only 0
+        # were in stock, so I added those" is nonsense, and reads as broken.
+        already = int(result.get("already_in_cart", 0))
+        if result["added"]:
+            got = f"only {result['added']} of the {qty} were in stock, so I added those"
+        elif already:
+            got = f"your basket already holds all {already} they had"
+        else:
+            got = f"there were none left of the {qty} you asked for"
+
+        if result["reserved"]:
+            summary["shortfall"]["res_id"] = result["reservation"]["res_id"]
+            summary["tell_the_shopper"] = (
+                f"{got}, and I reserved {'the other ' if result['added'] else 'all '}{short}"
+                + (f" — back {result['restock_date']}" if result.get("restock_date") else "")
+                + ". They will be offered to you the moment they land, and nothing is charged "
+                  "for them now.")
+        else:
+            summary["tell_the_shopper"] = (
+                f"{got}. This shop does not take reservations, so "
+                f"{'the other ' if result['added'] else ''}{short} cannot be held.")
     return summary
 
 
@@ -239,6 +306,19 @@ def update_qty(ctx: dict[str, Any], line_id: str, qty: int, **_: Any) -> dict[st
         )
     with _client(ctx["shop_url"]) as c:
         resp = c.patch(f"/cart/{ctx['cart_id']}", json={"op": "update", "line_id": line_id, "qty": qty})
+        if resp.status_code == 409 or (resp.status_code >= 400
+                                       and resp.json().get("code") == "OUT_OF_STOCK"):
+            # Same rule as adding: take what the shelf allows and hold the
+            # rest, rather than dead-ending the shopper (spec 7.2). Without
+            # this, "make that 10" when 5 exist simply failed.
+            line = next((l for l in c.get(f"/cart/{ctx['cart_id']}").json()["items"]
+                         if l["line_id"] == line_id), None)
+            if line is None:
+                raise _shop_error(resp)
+            extra = qty - int(line["qty"])
+            if extra > 0:
+                return add_to_cart(ctx, item_id=line["item_id"], qty=extra,
+                                   variant=line["variant"] or None)
     if resp.status_code != 200:
         raise _shop_error(resp)
     return {**_cart_summary(resp.json()), "savings": _savings(ctx)}
@@ -504,6 +584,11 @@ def summarise(name: str, result: dict[str, Any]) -> str:
     if name in MUTATING or name == "view_cart":
         line = (f"cart {result.get('item_count', 0)} item(s), "
                 f"{_rupees(int(result.get('subtotal_paise', 0)))}")
+        short = result.get("shortfall")
+        if short:
+            line += (f", {short['added']}/{short['requested']} in stock"
+                     + (f", {short['reserved']} reserved" if short["reserved"]
+                        else f", {short['short_by']} unavailable"))
         # the strip should show the agent noticing, not just the cart moving
         savings = result.get("savings") or {}
         if savings.get("claimed"):

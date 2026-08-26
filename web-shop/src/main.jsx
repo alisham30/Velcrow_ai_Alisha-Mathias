@@ -5,6 +5,7 @@ import { SHOP, brand } from "./brand.js";
 import { CartProvider } from "./store.jsx";
 import Header from "./components/Header.jsx";
 import CartDrawer from "./components/CartDrawer.jsx";
+import SplitNotice from "./components/SplitNotice.jsx";
 import Home from "./pages/Home.jsx";
 import Product from "./pages/Product.jsx";
 import Checkout from "./pages/Checkout.jsx";
@@ -26,6 +27,7 @@ function Storefront({ children }) {
       <Header />
       {children}
       <CartDrawer />
+      <SplitNotice />
       <footer className="mt-20 border-t border-line py-8 text-center text-sm text-muted">
         {brand.name} — {brand.footerNote}. Razorpay test mode; no real money moves.
       </footer>

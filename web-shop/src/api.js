@@ -70,6 +70,15 @@ export const shop = {
   createCart: () => request(brand.apiBase, "/cart", { method: "POST", body: {} }),
   getCart: (cartId) => request(brand.apiBase, `/cart/${cartId}`),
   patchCart: (cartId, op) => request(brand.apiBase, `/cart/${cartId}`, { method: "PATCH", body: op }),
+  // Take what is in stock and hold the rest (spec 7.2). The shop verifies the
+  // mandate before touching stock, so this carries one like any other write.
+  fulfil: (cartId, line, mandateToken) =>
+    request(brand.apiBase, `/cart/${cartId}/fulfil`, {
+      method: "POST",
+      body: { ...line, contact: shopperKey.contact(), shopper_ref: shopperKey.ref(),
+              contact_ref: shopperKey.contact() },
+      headers: { Authorization: `Mandate ${mandateToken}` },
+    }),
   coupons: (cartId) => request(brand.apiBase, `/cart/${cartId}/coupons`, { method: "POST", body: {} }),
   // The shopper key travels with every order (spec 7.3). Without it an order
   // is anonymous forever and reorder can never find it - which is exactly how

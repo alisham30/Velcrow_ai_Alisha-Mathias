@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { shop, ApiError } from "./api.js";
+import { shop, trust, ApiError } from "./api.js";
 import { brand } from "./brand.js";
 
 const CartContext = createContext(null);
@@ -12,6 +12,10 @@ export function CartProvider({ children }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null); // {kind: "error"|"info", text}
   const [caps, setCaps] = useState(null); // what this shop supports (spec 6.6)
+  // A part-filled request: what went in the basket, what was held back, and
+  // what happens to it. Shown as a dialog because a shopper who asked for 16
+  // and silently got 12 would find out at the till (spec 7.2).
+  const [split, setSplit] = useState(null);
 
   const refreshQuote = useCallback(async (view) => {
     if (!view || view.items.length === 0) {
@@ -103,12 +107,38 @@ export function CartProvider({ children }) {
     [cart, ensureCart, refreshQuote],
   );
 
+  // Adding goes through the shop's fulfil step (spec 7.2): it takes what is on
+  // the shelf and holds the rest, rather than refusing the whole request and
+  // leaving the shopper with nothing. The same endpoint the agent uses, so the
+  // two surfaces cannot disagree about what "add 16" means.
   const add = useCallback(
     async (itemId, variant, qty) => {
-      await mutate({ op: "add", item_id: itemId, variant: variant || "", qty });
-      setDrawerOpen(true);
+      setBusy(true);
+      try {
+        const current = cart || (await ensureCart());
+        const mandate = await trust.issueMandate([brand.shopId]);
+        const result = await shop.fulfil(
+          current.cart_id,
+          { item_id: itemId, variant: variant || "", qty },
+          mandate.token,
+        );
+        setCart(result.cart);
+        refreshQuote(result.cart);
+        if (result.shortfall > 0) {
+          // Never let a partial fill look like a whole one.
+          setSplit(result);
+        } else {
+          setDrawerOpen(true);
+        }
+        return result;
+      } catch (e) {
+        setNotice({ kind: "error", text: e.why || e.message });
+        throw e;
+      } finally {
+        setBusy(false);
+      }
     },
-    [mutate],
+    [cart, ensureCart, refreshQuote],
   );
 
   const updateQty = useCallback((lineId, qty) => mutate({ op: "update", line_id: lineId, qty }), [mutate]);
@@ -125,7 +155,7 @@ export function CartProvider({ children }) {
 
   return (
     <CartContext.Provider
-      value={{ cart, quote, count, busy, caps, drawerOpen, setDrawerOpen, add, updateQty, removeLine, resetCart, notice, setNotice, ensureCart }}
+      value={{ cart, quote, count, busy, caps, drawerOpen, setDrawerOpen, add, updateQty, removeLine, resetCart, notice, setNotice, ensureCart, split, setSplit }}
     >
       {children}
     </CartContext.Provider>
