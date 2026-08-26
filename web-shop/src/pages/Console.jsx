@@ -392,7 +392,7 @@ export default function Console() {
 
           <Section
             title="Lost demand"
-            note="What you are STILL being asked for and cannot sell. A row you have already restocked and told the shopper about drops to zero here — it is no longer money walking out. Restocking tells VelcrowAI, which offers it to the shoppers who were turned away; they still approve the purchase themselves."
+            note="What you are STILL being asked for. The number on the left counts only what is unresolved — a refusal the shopper came back and bought shows as bought back and stops being counted, and so does one they have been told about. Each row says whether it needs stock or only a message; restocking tells VelcrowAI, which offers it to the shoppers who were turned away, and they still approve the purchase themselves."
           >
             {data.ledger.rows.length === 0 ? (
               <p className="rounded-card border border-line bg-card p-6 text-sm text-muted">
