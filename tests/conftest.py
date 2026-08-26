@@ -11,6 +11,15 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setenv("MANDATE_SECRET", "test-secret-" + "0" * 32)
     monkeypatch.setenv("RAZORPAY_KEY_ID", "rzp_test_dummy")
     monkeypatch.setenv("RAZORPAY_KEY_SECRET", "dummy-secret")
+
+    # Point the shop's restock callback at a dead port. Otherwise a test run on
+    # a machine where .\run_all.ps1 is up reaches the REAL agent on 8003, and
+    # tests that expect a refusal to stay outstanding see it notified instead -
+    # the same test passing or failing depending on whether the dev services
+    # happen to be running. Tests that want the callback stub httpx themselves.
+    monkeypatch.setenv("VELCROW_AGENT_URL", "http://127.0.0.1:9")
+    import shop.app
+    monkeypatch.setattr(shop.app, "AGENT_URL", "http://127.0.0.1:9", raising=False)
     return monkeypatch
 
 

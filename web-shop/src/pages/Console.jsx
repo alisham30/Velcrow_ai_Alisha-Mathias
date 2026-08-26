@@ -15,6 +15,21 @@ import { ErrorBanner } from "../components/States.jsx";
  * same business (spec 11).
  */
 
+/* What a lost-demand row is now, in the merchant's words rather than the
+ * ledger's. "Recovered" is the only one of the four that is money. */
+const DEMAND_STATE = {
+  recovered: "refused, then bought — money recovered",
+  told: "restocked, shopper told, not bought yet",
+  lapsed: "restocked, nobody to tell",
+};
+
+/* Outstanding demand does not always mean "buy more stock". Where the shelf has
+ * already been refilled, what is missing is the message. */
+const DEMAND_ACTION = {
+  restock: "needs restocking",
+  notify: "in stock — they just have not been told",
+};
+
 function pct(rate) {
   return `${Math.round(rate * 100)}%`;
 }
@@ -377,7 +392,7 @@ export default function Console() {
 
           <Section
             title="Lost demand"
-            note="What you were asked for and could not sell. Restocking here tells VelcrowAI, which offers it to the shoppers who were turned away — they still approve the purchase themselves."
+            note="What you are STILL being asked for and cannot sell. A row you have already restocked and told the shopper about drops to zero here — it is no longer money walking out. Restocking tells VelcrowAI, which offers it to the shoppers who were turned away; they still approve the purchase themselves."
           >
             {data.ledger.rows.length === 0 ? (
               <p className="rounded-card border border-line bg-card p-6 text-sm text-muted">
@@ -411,8 +426,32 @@ export default function Console() {
                               </span>
                             )}
                           </td>
-                          <td className="p-3">{row.lost_units}</td>
-                          <td className="p-3 font-medium">{rupees(row.lost_value_paise)}</td>
+                          <td className="p-3">
+                            {row.outstanding_units}
+                            {row.recovered_units > 0 && (
+                              <span className="font-medium text-brand">
+                                {" "}
+                                (+{row.recovered_units} bought back)
+                              </span>
+                            )}
+                            {row.told_units > 0 && (
+                              <span className="text-muted"> (+{row.told_units} told)</span>
+                            )}
+                          </td>
+                          <td className="p-3 font-medium">
+                            {rupees(row.outstanding_value_paise)}
+                            {row.state !== "outstanding" ? (
+                              <span className="block text-xs font-normal text-muted">
+                                {DEMAND_STATE[row.state] || row.state}
+                              </span>
+                            ) : (
+                              DEMAND_ACTION[row.action] && (
+                                <span className="block text-xs font-normal text-muted">
+                                  {DEMAND_ACTION[row.action]}
+                                </span>
+                              )
+                            )}
+                          </td>
                           <td className="p-3">
                             {row.in_stock === 0 ? (
                               <span className="text-danger">out</span>
