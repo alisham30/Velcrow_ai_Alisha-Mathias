@@ -409,3 +409,76 @@ Real brand names · third-party site integration · browser extensions · mouse/
 6c2. **Adversarial demo (§7.9):** the poisoned product description → the model takes the bait → the tool layer and wallet refuse → BLOCKED, logged, trust halved. *"The model can be manipulated. It still cannot spend."*
 6d. **Protocol framing (§13):** show the manifest beside the names UAP / AP2 / ACP / x402 and say which idea each piece implements.
 7. Close: every rule that stopped the agent lives in code, not in a prompt.
+
+---
+
+## §16 — ROUND 2 ENDGAME (added 2026-08-26, six days to submit)
+
+Phases 1–8b are built and green. This section extends §12 with what is left,
+ordered by **value per hour against the brief**, not by tidiness. Same rule as
+§12: build in order, run the acceptance test, then stop.
+
+Two things decide the score, and neither is a feature:
+1. **A measured revenue number.** The brief's first line is "grow the merchant's
+   revenue". Right now that question has no answer, because the only real data
+   is polluted with test traffic.
+2. **A recorded demo.** An unrecorded build scores zero however good it is.
+
+Everything else is upside.
+
+### Where we actually are
+
+| Brief line | State |
+|---|---|
+| Conversational in-app checkout | Strong — widget, tool-calling, approval gate |
+| Agent-readable catalog | **Strongest** — manifest, capability negotiation, typed errors, `third_party_buyer.py` |
+| Campaign orchestrator | Strong — 8b growth agent, simulates before proposing, may propose nothing |
+| Upsell & cross-sell | **Weakest** — near-miss and reorder only |
+| Money bounded, gated, explainable | **Exceeds the bar** |
+| Audit trail | **Exceeds the bar** — dual chains, tamper, dispute-by-index |
+| One failure handled gracefully | **Exceeds** — two, both provable |
+| Why now: UAP / ACP / AP2 / x402 | **Hole** — §13 positioning written, no adapter |
+
+### The phases
+
+| # | Phase | Fixes / amplifies | Acceptance test | Est |
+|---|---|---|---|---|
+| **9** | **Truth in the numbers.** Settle the demand ledger when stock returns and the wanting party is told. `reset_demo.ps1`, then a scripted paired seed: N baskets bought plainly, N through the agent claiming a coupon, taking a near-miss and rescuing a stock-out. | Fixes the missing revenue number and a ledger that never settles and so misleads both the console and the growth agent | Revenue Lab shows a **positive measured lift** computed only from real paid orders; the console's Lost demand table shows only demand still outstanding; the growth agent's read of "lost demand" matches what is actually still lost | 0.5d |
+| **10** | **ACP adapter** (was 8d). Read the live published ACP spec and its OpenAPI first — take no endpoint shape or version string from this document or from memory. Checkout-session surface over the existing cart/order/confirm. Manifest declares it alongside the native block. | Closes the "why now" hole the brief names explicitly | The SAME unmodified `third_party_buyer.py` completes a purchase at **both** shops through the ACP surface, having negotiated capabilities first, and recovers from `OUT_OF_STOCK` by reserving | 1d |
+| **11** | **Agent-to-agent negotiation.** The buyer presents a mandate and a ceiling; the shop's growth agent answers with `simulate_discount` bounded by the margin floor — accept, counter, or refuse with a reason. Counter-offers are signed and time-boxed. Both sides log to their own chain. | **The standout.** The brief calls agent-to-agent commerce "the open problem of the year"; this is two autonomous parties with opposed interests, bounded by policy in code | A buyer whose ceiling is under list price receives a bounded counter-offer it can rank; a ceiling below the margin floor is **refused with the reason**, never quietly accepted; the dispute view shows both sides' record of the same negotiation | 1d |
+| **12** | **Cross-sell from real baskets.** Co-purchase computed from paid `line_items` across both shops' own orders, with a support count. Surfaced by the widget at the moment it helps, never as a banner. | Fixes the weakest of the four named directions | Every suggestion states how many past baskets it rests on; nothing is suggested below a stated support floor; suggestions are absent on a shop with too little history rather than invented | 0.5d |
+| **13** | **`lab/determinism_check.py`** (was 8c) + Trace tab in plain language. | Amplifies the "not a script" proof; the Trace tab currently prints `update_qty(line_id="line_625a4a05", qty=1)`, which is readable to an engineer and to nobody else | Same sentence, two stock states, two visibly different traces side by side; the Trace tab reads as sentences a merchant understands | 0.5d |
+| **14** | **Submission.** Two clean full dry runs with zero terminal use. README with the architecture diagram and the honest claims table from §13. Five-minute video. | Non-negotiable | The §15 demo path runs twice, unattended, without a terminal; the video is recorded and the repo is submitted | 1.5d |
+
+**Cut order (top first):** cross-sell (12) → the plain-language Trace tab half of 13 → the second dry run. **Never cut:** phase 9 and phase 14.
+
+### What NOT to build
+
+No WhatsApp. No further widget polish. No fifth feature after these. Nothing on
+the rubric rewards cosmetics, and every hour spent there is an hour not spent
+on the video.
+
+### What to say, and not say
+
+Lead with the inverse of what everyone else will claim. Not "we built a
+shopping agent" — every submission is that. Instead:
+
+> *The agent chooses its own actions and it demonstrably gets things wrong —
+> here is a trace where it invented a product id and tried to overspend a
+> mandate. Neither cost the merchant a rupee, because the rules are in code,
+> not in a prompt. And a buyer that has never seen this shop can complete a
+> purchase from the manifest alone.*
+
+Every clause of that is provable on screen. Keep §13's discipline: claim
+influence and interoperability, never equivalence. Say what the ACP adapter
+implements and nothing more.
+
+### Honest weaknesses to state before a judge finds them
+
+- One LLM in a tool-calling loop is the standard 2026 pattern, not a
+  differentiator. The differentiator is the containment around it.
+- The only thing that learns from data is the Thompson bandit in §4.6, and it
+  learns from a handful of merchant decisions. Say that plainly; do not imply
+  ML anywhere else.
+- The Revenue Lab is a measurement over a small sample. Report the sample size
+  next to the lift.
