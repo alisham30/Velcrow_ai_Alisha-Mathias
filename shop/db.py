@@ -503,6 +503,15 @@ class ShopDB:
                 " ORDER BY created_ts", (item_id, variant)).fetchall()
         return [dict(r) for r in rows]
 
+    def demand_already_notified(self, item_id: str, variant: str) -> int:
+        """People refused this item who have already been told it is back. Not
+        the same as nobody having wanted it."""
+        with self._conn() as c:
+            row = c.execute(
+                "SELECT COUNT(*) n FROM demand_ledger WHERE item_id = ? AND variant = ?"
+                " AND notified_ts IS NOT NULL", (item_id, variant)).fetchone()
+        return int(row["n"])
+
     def mark_demand_notified(self, row_id: int) -> None:
         with self._conn() as c:
             c.execute("UPDATE demand_ledger SET notified_ts = ? WHERE id = ?",

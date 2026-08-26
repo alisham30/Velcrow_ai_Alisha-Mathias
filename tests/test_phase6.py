@@ -299,3 +299,90 @@ def test_a_reservation_nobody_could_reach_stays_open(loom, monkeypatch):
 
     queue = loom.get("/merchant/reservations").json()
     assert next(r for r in queue["reservations"] if r["res_id"] == res_id)["status"] == "open"
+
+
+# -- telling the truth about what was held ----------------------------------
+
+def test_a_notify_only_shop_never_claims_it_held_a_unit(freshkart, monkeypatch):
+    """FreshKart cannot reserve. An offer from it must not say "I have held
+    your place" - that promises a unit the shop never set aside."""
+    import shop.app as shop_app
+    from common import mandate as mandate_mod
+
+    sent = []
+
+    class Agent:
+        @staticmethod
+        def post(url, json=None, timeout=0):
+            sent.append(json)
+
+            class R:
+                status_code = 200
+
+                @staticmethod
+                def json():
+                    return {"offered": True, "offer_id": "off_x"}
+
+            return R()
+
+    monkeypatch.setattr(shop_app, "httpx", Agent)
+    token = mandate_mod.issue(10_000_000, 5_000_000, ["freshkart"], ttl_seconds=600)
+    cart = freshkart.post("/cart").json()["cart_id"]
+    freshkart.post(f"/cart/{cart}/fulfil",
+                   json={"item_id": "lemons-1kg", "variant": "", "qty": 40,
+                         "shopper_ref": "shp_x"},
+                   headers={"Authorization": f"Mandate {token}"}).raise_for_status()
+    freshkart.post("/admin/restock", json={"item_id": "lemons-1kg", "variant": "", "qty": 5})
+
+    assert sent and sent[0]["held"] is False
+
+
+def test_a_reserving_shop_does_claim_it_held_one(loom):
+    item_id, variant = _an_out_of_stock_variant(loom)
+    _reserve(loom, item_id, variant)
+    result = loom.post("/admin/restock",
+                       json={"item_id": item_id, "variant": variant, "qty": 5}).json()
+    assert result["reservations_notified"][0]["offered"] is True
+
+
+def test_already_told_is_reported_separately_from_nobody(freshkart, monkeypatch):
+    """Restocking twice said "Nobody was waiting on it" the second time, which
+    reads as though nobody had ever wanted it."""
+    import shop.app as shop_app
+    from common import mandate as mandate_mod
+
+    class Agent:
+        @staticmethod
+        def post(url, json=None, timeout=0):
+            class R:
+                status_code = 200
+
+                @staticmethod
+                def json():
+                    return {"offered": True, "offer_id": "off_x"}
+
+            return R()
+
+    monkeypatch.setattr(shop_app, "httpx", Agent)
+    token = mandate_mod.issue(10_000_000, 5_000_000, ["freshkart"], ttl_seconds=600)
+    cart = freshkart.post("/cart").json()["cart_id"]
+    freshkart.post(f"/cart/{cart}/fulfil",
+                   json={"item_id": "lemons-1kg", "variant": "", "qty": 40,
+                         "shopper_ref": "shp_x"},
+                   headers={"Authorization": f"Mandate {token}"}).raise_for_status()
+
+    first = freshkart.post("/admin/restock",
+                           json={"item_id": "lemons-1kg", "variant": "", "qty": 5}).json()
+    second = freshkart.post("/admin/restock",
+                            json={"item_id": "lemons-1kg", "variant": "", "qty": 5}).json()
+
+    assert len(first["reservations_notified"]) == 1
+    assert second["reservations_notified"] == []
+    assert second["already_notified"] == 1      # not zero: they were told, once
+
+
+def test_an_item_nobody_asked_for_reports_a_true_zero(freshkart):
+    result = freshkart.post("/admin/restock",
+                            json={"item_id": "tomatoes-1kg", "variant": "", "qty": 5}).json()
+    assert result["reservations_notified"] == []
+    assert result["already_notified"] == 0

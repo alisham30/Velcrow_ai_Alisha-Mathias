@@ -100,15 +100,23 @@ export default function Console() {
     try {
       const result = await shop.restock(row.item_id, row.variant, qty);
       const reached = (result.reservations_notified || []).filter((r) => r.offered).length;
+      const alreadyTold = result.already_notified || 0;
+      // "Nobody wanted it" and "everyone who wanted it already knows" are
+      // different facts. Reporting the second as the first read as though the
+      // restock had reached nobody at all.
+      const who = reached
+        ? `${reached} waiting shopper${reached > 1 ? "s were" : " was"} offered it — ` +
+          `they now decide, nothing is charged.`
+        : alreadyTold
+          ? `The ${alreadyTold} shopper${alreadyTold > 1 ? "s" : ""} who wanted this ` +
+            `${alreadyTold > 1 ? "have" : "has"} already been told, so nobody was contacted again.`
+          : "Nobody had asked for this one, so there was no one to contact.";
       setFlash({
         tone: "good",
         text:
           `Restocked ${row.product_name || row.item_id}` +
           `${row.variant ? ` (${row.variant})` : ""} by ${qty} to ${result.stock} in stock. ` +
-          (reached
-            ? `${reached} waiting shopper${reached > 1 ? "s were" : " was"} offered it — ` +
-              `they now decide, nothing is charged.`
-            : "Nobody was waiting on it, so no one was contacted."),
+          who,
       });
       await load();
     } catch (err) {

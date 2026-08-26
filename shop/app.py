@@ -665,6 +665,9 @@ def create_app() -> FastAPI:
                     "qty": int(row["qty"]), "unit_price_paise": product["price_paise"],
                     "contact_ref": "", "shopper_ref": row["shopper_ref"],
                     "contact_key": row["contact_key"], "mandate_jti": "",
+                    # Nothing was reserved for this shopper - this shop cannot.
+                    # Saying otherwise would promise a unit that is not theirs.
+                    "held": False,
                 }
                 try:
                     resp = httpx.post(f"{AGENT_URL}/callback/restock", json=payload, timeout=10)
@@ -690,6 +693,7 @@ def create_app() -> FastAPI:
                 "res_id": res["res_id"], "product_id": item_id,
                 "product_name": product["name"], "variant": variant,
                 "qty": int(res["qty"] or 1), "unit_price_paise": product["price_paise"],
+                "held": True,
                 "contact_ref": res["contact_ref"], "shopper_ref": res["shopper_ref"],
                 "contact_key": res["contact_key"], "mandate_jti": res["mandate_jti"],
             }
@@ -717,8 +721,13 @@ def create_app() -> FastAPI:
                             {"res_id": res["res_id"], "delivered": delivered, "offered": offered,
                              "product_id": item_id, "variant": variant})
 
+        # "Nobody was waiting" and "everyone waiting has already been told" are
+        # different facts, and reporting the second as the first reads as though
+        # the restock reached nobody.
+        already_told = db.demand_already_notified(item_id, variant)
         return {"product_id": item_id, "variant": variant, "added": qty, "stock": new_stock,
-                "reservations_notified": notified}
+                "reservations_notified": notified,
+                "already_notified": already_told}
 
     @app.get("/merchant/summary")
     def merchant_summary() -> dict[str, Any]:

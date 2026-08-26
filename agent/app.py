@@ -224,6 +224,9 @@ def create_app() -> FastAPI:
             "line_total_display": money.rupees(
                 int(body.get("unit_price_paise", 0)) * int(body.get("qty", 1) or 1)),
             "contact_ref": body.get("contact_ref", ""),
+            # Whether a unit is actually being held for them. A shop that only
+            # notifies must not have the widget promise it reserved something.
+            "held": bool(body.get("held", True)),
             "mandate_jti": jti,
         })
         chainlog.append("buyer", "comeback_offered",

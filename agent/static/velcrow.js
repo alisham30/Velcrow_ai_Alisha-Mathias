@@ -484,11 +484,17 @@
     var label = offer.product_name + (offer.variant ? " (" + offer.variant + ")" : "");
     var c = card("", "Back in stock");
 
+    var held = offer.held !== false;
     var line = el("div");
     line.style.fontSize = "13px";
     line.style.lineHeight = "1.5";
-    line.textContent =
-      "You asked me to watch " + label + ". It is back, and I have held your place.";
+    // Only say a unit was held if one actually was. Some shops can tell you
+    // stock has landed without being able to keep any of it back for you, and
+    // promising otherwise is a promise the shop never made.
+    line.textContent = held
+      ? "You asked me to watch " + label + ". It is back, and I have held your place."
+      : "You wanted " + label + " when it was out of stock. It is back in now — " +
+        cfg.shop_name + " could not hold any aside, so this is first come, first served.";
     c.appendChild(line);
 
     var table = el("table", "vc-rows");
@@ -502,16 +508,18 @@
     var no = el("button", "vc-no");
     ok.type = "button";
     no.type = "button";
-    ok.textContent = "Add it and check out";
+    ok.textContent = held ? "Add it and check out" : "Add it before it goes";
     no.textContent = "No thanks";
     acts.appendChild(ok);
     acts.appendChild(no);
     c.appendChild(acts);
 
     var gate = el("div", "vc-gate");
-    gate.textContent =
-      "Held because you reserved it, not because anything was bought. " +
-      "You will still see the total and approve it before any money moves.";
+    gate.textContent = held
+      ? "Held because you reserved it, not because anything was bought. " +
+        "You will still see the total and approve it before any money moves."
+      : "Nothing is held and nothing is bought. You will see the total and " +
+        "approve it before any money moves.";
     c.appendChild(gate);
 
     log.appendChild(c);
@@ -531,7 +539,9 @@
       // Hand it to the ordinary agent loop rather than a special path, so the
       // reserved item goes through the same tools, the same trace and the
       // same approval gate as anything else.
-      send("Add the " + offer.qty + " " + label + " I reserved, then check out.");
+      send(held
+        ? "Add the " + offer.qty + " " + label + " I reserved, then check out."
+        : "Add " + offer.qty + " " + label + " and check out.");
     });
   }
 
