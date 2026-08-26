@@ -10,7 +10,7 @@ capabilities:
   checkout: true
   discounts: true
   reservations: false
-  restock_notify: false
+  restock_notify: true
   human_approval: true
   variants: pack
 coupons:

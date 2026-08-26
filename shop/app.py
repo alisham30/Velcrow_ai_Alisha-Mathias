@@ -575,6 +575,11 @@ def create_app() -> FastAPI:
         capacity = max(stock - already, 0)
         added = min(need, capacity)
         shortfall = need - added
+        try:
+            fulfil_contact_key = contact.normalise(str(body.get("contact_ref")
+                                                       or body.get("contact") or ""))
+        except contact.InvalidContact:
+            fulfil_contact_key = ""
         if added:
             db.upsert_line(cart_id, item_id, variant, added)
 
@@ -585,8 +590,12 @@ def create_app() -> FastAPI:
                 str(body.get("shopper_ref") or ""), claims["jti"], restock_date)
             reserved = shortfall
         elif shortfall:
+            # Cannot hold one, but we know who wanted it - so a restock can
+            # still come back to them (spec 6.1 restock_notify).
             db.record_lost_demand(item_id, variant, shortfall, product["price_paise"],
-                                  "out_of_stock_unreservable")
+                                  "out_of_stock_unreservable",
+                                  shopper_ref=str(body.get("shopper_ref") or ""),
+                                  contact_key=fulfil_contact_key)
             chainlog.append(shop_id, "demand_lost",
                             f"{shortfall} x '{item_id}' {variant or '-'} could not be supplied "
                             f"and this shop takes no reservations; "
@@ -643,6 +652,38 @@ def create_app() -> FastAPI:
                          "stock": new_stock, "waiting": len(waiting)})
 
         notified: list[dict[str, Any]] = []
+
+        # People who were refused but whose demand no reservation covers. This
+        # is the hole that lost the sale: the shop recorded that they wanted it,
+        # restocked, and told nobody.
+        if caps.get("restock_notify"):
+            for row in db.unnotified_demand(item_id, variant):
+                payload = {
+                    "shop_id": shop_id, "shop_url": str(request.base_url).rstrip("/"),
+                    "res_id": f"demand_{row['id']}", "product_id": item_id,
+                    "product_name": product["name"], "variant": variant,
+                    "qty": int(row["qty"]), "unit_price_paise": product["price_paise"],
+                    "contact_ref": "", "shopper_ref": row["shopper_ref"],
+                    "contact_key": row["contact_key"], "mandate_jti": "",
+                }
+                try:
+                    resp = httpx.post(f"{AGENT_URL}/callback/restock", json=payload, timeout=10)
+                    offered = resp.status_code < 400 and resp.json().get("offered")
+                except Exception:
+                    offered = False
+                if offered:
+                    db.mark_demand_notified(row["id"])
+                    notified.append({"res_id": payload["res_id"], "contact_ref": "unreserved",
+                                     "accepted": True, "offered": True,
+                                     "detail": {"from": "demand_ledger"}})
+                    chainlog.append(shop_id, "lost_demand_recontacted",
+                                    f"told a shopper that '{item_id}' {variant or '-'} is back "
+                                    f"even though no unit was held for them; "
+                                    f"{int(row['qty']) * product['price_paise']} paise of "
+                                    "recorded demand back in play",
+                                    {"demand_id": row["id"], "product_id": item_id,
+                                     "variant": variant, "qty": int(row["qty"])})
+
         for res in waiting:
             payload = {
                 "shop_id": shop_id, "shop_url": str(request.base_url).rstrip("/"),

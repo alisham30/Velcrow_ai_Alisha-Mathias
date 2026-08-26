@@ -355,3 +355,125 @@ def test_an_unknown_mode_is_refused(loomcraft):
                           json={"item_id": item_id, "variant": variant, "qty": 1,
                                 "mode": "whatever"}, headers=_auth())
     assert resp.json()["code"] == "BAD_REQUEST"
+
+
+# -- a shop that cannot hold a unit can still come back to you --------------
+
+def test_refused_demand_records_who_was_turned_away(freshkart):
+    """The ledger knew WHAT was refused and not WHO, so a restock at a shop
+    without reservations had nobody to tell and the sale died."""
+    cart = freshkart.post("/cart").json()["cart_id"]
+    freshkart.post(f"/cart/{cart}/fulfil",
+                   json={"item_id": "lemons-1kg", "variant": "", "qty": 40,
+                         "shopper_ref": "shp_who", "contact_ref": "who@example.com"},
+                   headers=_auth("freshkart")).raise_for_status()
+
+    import sqlite3, os
+    from pathlib import Path
+    db = sqlite3.connect(Path(os.environ["VELCROW_DATA_DIR"]) / "shop_freshkart.sqlite")
+    db.row_factory = sqlite3.Row
+    row = db.execute("SELECT shopper_ref, contact_key, notified_ts FROM demand_ledger"
+                     " ORDER BY id DESC LIMIT 1").fetchone()
+    assert row["shopper_ref"] == "shp_who"
+    assert row["contact_key"] == "email:who@example.com"
+    assert row["notified_ts"] is None
+
+
+def test_restocking_contacts_people_no_unit_was_held_for(freshkart, monkeypatch):
+    """FreshKart cannot reserve, but it CAN notify - those are separate
+    capabilities (spec 6.1). Conflating them lost the sale."""
+    import shop.app as shop_app
+
+    seen = []
+
+    class Agent:
+        @staticmethod
+        def post(url, json=None, timeout=0):
+            seen.append(json)
+
+            class R:
+                status_code = 200
+
+                @staticmethod
+                def json():
+                    return {"offered": True, "offer_id": "off_x"}
+
+            return R()
+
+    monkeypatch.setattr(shop_app, "httpx", Agent)
+
+    cart = freshkart.post("/cart").json()["cart_id"]
+    freshkart.post(f"/cart/{cart}/fulfil",
+                   json={"item_id": "lemons-1kg", "variant": "", "qty": 40,
+                         "shopper_ref": "shp_who", "contact_ref": "who@example.com"},
+                   headers=_auth("freshkart")).raise_for_status()
+
+    result = freshkart.post("/admin/restock",
+                            json={"item_id": "lemons-1kg", "variant": "", "qty": 10}).json()
+    assert any(n["offered"] for n in result["reservations_notified"])
+    assert seen and seen[0]["shopper_ref"] == "shp_who"
+    assert seen[0]["contact_key"] == "email:who@example.com"
+
+    from common import chainlog
+    assert any(e["event"] == "lost_demand_recontacted"
+               for e in chainlog.tail("freshkart", 20))
+
+
+def test_nobody_is_told_twice_about_the_same_refusal(freshkart, monkeypatch):
+    import shop.app as shop_app
+
+    class Agent:
+        @staticmethod
+        def post(url, json=None, timeout=0):
+            class R:
+                status_code = 200
+
+                @staticmethod
+                def json():
+                    return {"offered": True, "offer_id": "off_x"}
+
+            return R()
+
+    monkeypatch.setattr(shop_app, "httpx", Agent)
+    cart = freshkart.post("/cart").json()["cart_id"]
+    freshkart.post(f"/cart/{cart}/fulfil",
+                   json={"item_id": "lemons-1kg", "variant": "", "qty": 40,
+                         "shopper_ref": "shp_who"},
+                   headers=_auth("freshkart")).raise_for_status()
+
+    first = freshkart.post("/admin/restock",
+                           json={"item_id": "lemons-1kg", "variant": "", "qty": 10}).json()
+    second = freshkart.post("/admin/restock",
+                            json={"item_id": "lemons-1kg", "variant": "", "qty": 10}).json()
+    assert len(first["reservations_notified"]) == 1
+    assert second["reservations_notified"] == []
+
+
+def test_an_anonymous_refusal_still_has_nobody_to_tell(freshkart, monkeypatch):
+    """Honest limit: if the shopper left no key at all, the demand is recorded
+    for the merchant but there is genuinely nobody to contact."""
+    import shop.app as shop_app
+
+    class Agent:
+        @staticmethod
+        def post(*a, **k):
+            raise AssertionError("should not try to contact an anonymous shopper")
+
+    monkeypatch.setattr(shop_app, "httpx", Agent)
+    cart = freshkart.post("/cart").json()["cart_id"]
+    freshkart.post(f"/cart/{cart}/fulfil",
+                   json={"item_id": "lemons-1kg", "variant": "", "qty": 40},
+                   headers=_auth("freshkart")).raise_for_status()
+    result = freshkart.post("/admin/restock",
+                            json={"item_id": "lemons-1kg", "variant": "", "qty": 5}).json()
+    assert result["reservations_notified"] == []
+
+
+def test_the_two_shops_still_differ_in_what_they_can_do(freshkart, loomcraft):
+    """Fixing the notify hole must not flatten the capability difference the
+    third-party buyer adapts to: Loomcraft HOLDS a unit, FreshKart only tells
+    you it is back."""
+    f = freshkart.post("/agent/capabilities", json={"capabilities": {}}).json()["capabilities"]
+    l = loomcraft.post("/agent/capabilities", json={"capabilities": {}}).json()["capabilities"]
+    assert f["reservations"] is False and f["restock_notify"] is True
+    assert l["reservations"] is True and l["restock_notify"] is True

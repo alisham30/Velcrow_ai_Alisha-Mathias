@@ -120,6 +120,16 @@ class ShopDB:
             )
             # Coupons an approved campaign creates at runtime, merged with the
             # config set until they lapse.
+            # WHO was refused, not just what. Without this a shop that cannot
+            # hold a unit has nobody to tell when the item comes back, so the
+            # sale dies even though we knew who wanted it.
+            dl_cols = {r["name"] for r in c.execute("PRAGMA table_info(demand_ledger)")}
+            if "shopper_ref" not in dl_cols:
+                c.execute("ALTER TABLE demand_ledger ADD COLUMN shopper_ref TEXT NOT NULL DEFAULT ''")
+            if "contact_key" not in dl_cols:
+                c.execute("ALTER TABLE demand_ledger ADD COLUMN contact_key TEXT NOT NULL DEFAULT ''")
+            if "notified_ts" not in dl_cols:
+                c.execute("ALTER TABLE demand_ledger ADD COLUMN notified_ts REAL")
             c.execute(
                 "CREATE TABLE IF NOT EXISTS runtime_coupons ("
                 "  code TEXT PRIMARY KEY, coupon TEXT NOT NULL,"
@@ -463,16 +473,40 @@ class ShopDB:
 
     # -- demand ledger (spec 6.1, 7.2: refusals become restock forecasts) ----
     def record_lost_demand(self, item_id: str, variant: str, qty: int, unit_price_paise: int,
-                           reason: str, res_id: str | None = None) -> int:
-        """One row per refused demand. value_paise is the revenue not taken."""
+                           reason: str, res_id: str | None = None, shopper_ref: str = "",
+                           contact_key: str = "") -> int:
+        """One row per refused demand. value_paise is the revenue not taken.
+
+        Records WHO was turned away where we know. A shop that cannot HOLD a
+        unit can still TELL someone it has landed - those are different
+        capabilities (spec 6.1), and treating them as one threw the sale away.
+        """
         with self._conn() as c:
             cur = c.execute(
                 "INSERT INTO demand_ledger (item_id, variant, qty, unit_price_paise, value_paise,"
-                " reason, res_id, created_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                " reason, res_id, created_ts, shopper_ref, contact_key)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (item_id, variant, qty, unit_price_paise, qty * unit_price_paise, reason, res_id,
-                 time.time()),
+                 time.time(), shopper_ref, contact_key),
             )
         return int(cur.lastrowid)
+
+    def unnotified_demand(self, item_id: str, variant: str) -> list[dict[str, Any]]:
+        """People turned away for this item who were never told it came back and
+        who left something we can reach them by. Rows covered by a reservation
+        are excluded - that path notifies separately."""
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT id, qty, unit_price_paise, shopper_ref, contact_key FROM demand_ledger"
+                " WHERE item_id = ? AND variant = ? AND notified_ts IS NULL"
+                " AND res_id IS NULL AND (shopper_ref != '' OR contact_key != '')"
+                " ORDER BY created_ts", (item_id, variant)).fetchall()
+        return [dict(r) for r in rows]
+
+    def mark_demand_notified(self, row_id: int) -> None:
+        with self._conn() as c:
+            c.execute("UPDATE demand_ledger SET notified_ts = ? WHERE id = ?",
+                      (time.time(), row_id))
 
     def demand_rows(self) -> list[dict[str, Any]]:
         with self._conn() as c:

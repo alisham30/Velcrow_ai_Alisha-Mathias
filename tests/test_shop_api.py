@@ -215,8 +215,11 @@ def test_manifest_shapes_differ_per_shop(freshkart, loomcraft):
         assert m["policies"]["price_lock_seconds"] == 300
     assert fk["merchant"] == {"id": "freshkart", "name": "FreshKart", "category": "grocery"}
     assert lc["merchant"] == {"id": "loomcraft", "name": "Loomcraft", "category": "apparel"}
+    # Holding a unit and telling you it is back are DIFFERENT capabilities.
+    # FreshKart cannot hold one; it can still come back to you when stock
+    # lands, and treating those as one thing silently lost the sale.
     assert "reservations" in lc["capabilities"] and "reservations" not in fk["capabilities"]
-    assert "restock_notify" in lc["capabilities"] and "restock_notify" not in fk["capabilities"]
+    assert "restock_notify" in lc["capabilities"] and "restock_notify" in fk["capabilities"]
 
 
 def test_capability_negotiation_differs_per_shop(freshkart, loomcraft):
@@ -226,7 +229,8 @@ def test_capability_negotiation_differs_per_shop(freshkart, loomcraft):
     lc = loomcraft.post("/agent/capabilities", json=ask).json()["capabilities"]
     assert fk["variants"] == "pack" and lc["variants"] == "size"
     assert fk["reservations"] is False and lc["reservations"] is True
-    assert fk["restock_notify"] is False and lc["restock_notify"] is True
+    # both notify; only Loomcraft holds a unit for you
+    assert fk["restock_notify"] is True and lc["restock_notify"] is True
     assert fk["teleportation"] is False and lc["teleportation"] is False  # unknown -> false
     assert fk != lc
 
