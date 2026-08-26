@@ -70,6 +70,47 @@ class Run:
         return q
 
 
+# Offers the agent is holding for a shopper who is not here (spec 7.2). These
+# are created by the restock callback with nobody at the keyboard, and picked
+# up the next time that browser opens the widget. An offer is only an offer:
+# acting on one still runs the whole approval and wallet path.
+OFFERS: dict[str, dict[str, Any]] = {}
+MAX_OFFERS_KEPT = 200
+
+
+def hold_offer(shopper_ref: str, offer: dict[str, Any]) -> dict[str, Any]:
+    held = {**offer, "offer_id": "off_" + uuid.uuid4().hex[:12],
+            "shopper_ref": shopper_ref, "created_ts": time.time(), "status": "pending"}
+    OFFERS[held["offer_id"]] = held
+    for stale in list(OFFERS)[:-MAX_OFFERS_KEPT]:
+        OFFERS.pop(stale, None)
+    return held
+
+
+def pending_offers(shopper_ref: str, shop_id: str, contact_key: str = "") -> list[dict[str, Any]]:
+    """Offers waiting for this shopper, matched on EITHER half of identity.
+
+    The contact key is what makes a comeback survive a new device: the offer
+    was created against whichever browser took the reservation, and the person
+    may well return on a different one (spec 7.2, 7.3).
+    """
+    if not shopper_ref and not contact_key:
+        return []
+    return [o for o in OFFERS.values()
+            if o["shop_id"] == shop_id and o["status"] == "pending"
+            and ((shopper_ref and o.get("shopper_ref") == shopper_ref)
+                 or (contact_key and o.get("contact_key") == contact_key))]
+
+
+def take_offer(offer_id: str) -> dict[str, Any] | None:
+    """Claim an offer exactly once, so a double tap cannot act on it twice."""
+    offer = OFFERS.get(offer_id)
+    if offer is None or offer["status"] != "pending":
+        return None
+    offer["status"] = "taken"
+    return offer
+
+
 def new_run(shop_id: str) -> Run:
     run = Run("run_" + uuid.uuid4().hex[:12], shop_id)
     RUNS[run.run_id] = run
@@ -101,9 +142,17 @@ def gather_context(shop: dict[str, Any], cart_id: str, mandate_claims: dict[str,
 
 
 async def run_turn(run: Run, shop: dict[str, Any], cart_id: str, user_text: str,
-                   history: list[dict[str, str]], mandate_claims: dict[str, Any]) -> None:
+                   history: list[dict[str, str]], mandate_claims: dict[str, Any],
+                   mandate_token: str = "", shopper_ref: str = "",
+                   contact_key: str = "") -> None:
     """Execute one shopper turn end to end, emitting events as it goes."""
-    ctx = {"shop_url": shop["url"], "shop_id": shop["shop_id"], "cart_id": cart_id}
+    # The mandate token rides along because the shop verifies it itself before
+    # creating an order (spec 6.6 mutual verification). shopper_ref is the
+    # browser-held reference and contact_key the portable one; together they
+    # let "my usual order" find a basket bought on another device.
+    ctx = {"shop_url": shop["url"], "shop_id": shop["shop_id"], "cart_id": cart_id,
+           "mandate_token": mandate_token, "shopper_ref": shopper_ref,
+           "contact_key": contact_key, "turn_id": run.run_id}
     loop = asyncio.get_running_loop()
 
     try:
@@ -118,8 +167,8 @@ async def run_turn(run: Run, shop: dict[str, Any], cart_id: str, user_text: str,
 
     # The system prompt is rebuilt every turn so the context is live, but the
     # conversation underneath it is the real one, tool calls and all.
-    key = (shop["shop_id"], cart_id)
-    prior = CONVERSATIONS.get(key)
+    convo_key = (shop["shop_id"], cart_id)
+    prior = CONVERSATIONS.get(convo_key)
     if prior is None:
         prior = [{"role": t["role"], "content": t["content"]} for t in (history or [])[-6:]]
     messages: list[dict[str, Any]] = [{"role": "system", "content": llm.system_prompt(context)}]
@@ -171,16 +220,16 @@ async def run_turn(run: Run, shop: dict[str, Any], cart_id: str, user_text: str,
             try:
                 if fn is None:
                     raise tools.ToolError(f"no such tool '{name}'", "UNKNOWN_TOOL")
+                add_key = (str(args.get("item_id", "")), str(args.get("variant") or ""))
                 if name == "add_to_cart":
-                    key = (str(args.get("item_id", "")), str(args.get("variant") or ""))
-                    if key in added_this_turn:
+                    if add_key in added_this_turn:
                         raise tools.ToolError(
-                            f"'{key[0]}' was already added in this turn; if the shopper wants a "
+                            f"'{add_key[0]}' was already added in this turn; if the shopper wants a "
                             "different quantity call update_qty on that line instead",
                             "DUPLICATE_ADD")
                 result = await loop.run_in_executor(None, lambda: fn(ctx, **args))
                 if name == "add_to_cart":
-                    added_this_turn.add(key)
+                    added_this_turn.add(add_key)
                 summary = tools.summarise(name, result)
                 ok = True
             except tools.ToolError as exc:
@@ -193,7 +242,13 @@ async def run_turn(run: Run, shop: dict[str, Any], cart_id: str, user_text: str,
                 ok = False
             latency_ms = int((time.perf_counter() - started) * 1000)
 
+            # spec 6.5: the strip is the proof the agent chose its own actions,
+            # so every line it renders is built here and shipped ready to print.
+            # No field is ever empty — a blank bullet would read as "no reason".
             run.emit("tool", tool=name, args=args, why=why, result_summary=summary,
+                     call_display=tools.call_display(name, args),
+                     result_display=f"{summary} · {latency_ms}ms",
+                     why_display=why,
                      latency_ms=latency_ms, ok=ok, round=round_no)
             chainlog.append("buyer", "agent_tool_call",
                             f"{name}({json.dumps(args, ensure_ascii=False)}) -> {summary}; "
@@ -203,6 +258,33 @@ async def run_turn(run: Run, shop: dict[str, Any], cart_id: str, user_text: str,
                              "degraded": degraded})
             if ok and name in tools.MUTATING:
                 cart_touched = True
+
+            if ok and name == "identify_shopper":
+                # Tell the browser the normalised key so it persists and is
+                # sent on every later turn, including after a restart.
+                run.emit("shopper_identified", contact_key=ctx.get("contact_key", ""),
+                         contact=result.get("contact", ""),
+                         orders_claimed=result.get("orders_claimed", 0))
+                chainlog.append("buyer", "shopper_key_linked",
+                                f"shopper gave {result.get('contact', '')} at {shop['shop_id']}; "
+                                f"{result.get('orders_claimed', 0)} past order(s) claimed. "
+                                "A contact unlocks history only, never money",
+                                {"run_id": run.run_id, "shop_id": shop["shop_id"],
+                                 "orders_claimed": result.get("orders_claimed", 0)})
+
+            if ok and name == "start_checkout":
+                # The agent has produced a quote and stopped. Everything the
+                # human must see before money can move goes out here; the tap
+                # on the approval card is what signs the cart-bound approval
+                # (spec 5.1) and is the only thing that reaches the wallet.
+                run.emit("approval_required", **result)
+                chainlog.append("buyer", "approval_requested",
+                                f"agent quoted {result['txn_ref']} at {result['charge_display']} "
+                                f"from {shop['shop_id']} and stopped for the human's approval; "
+                                "no tool can move money",
+                                {"run_id": run.run_id, "shop_id": shop["shop_id"],
+                                 "txn_ref": result["txn_ref"],
+                                 "amount_paise": result["charge_amount_paise"]})
 
             messages.append({"role": "tool", "tool_call_id": tc["id"],
                              "content": json.dumps(result, ensure_ascii=False)})
@@ -220,7 +302,7 @@ async def run_turn(run: Run, shop: dict[str, Any], cart_id: str, user_text: str,
         messages.append({"role": "assistant", "content": stalled})
         run.emit("message", text=stalled, degraded=degraded, rounds=llm.MAX_ROUNDS)
 
-    CONVERSATIONS[key] = _trim(messages[1:])  # keep everything but the system prompt
+    CONVERSATIONS[convo_key] = _trim(messages[1:])  # keep everything but the system prompt
     run.emit("cart_changed", changed=cart_touched)
     run.finish()
 

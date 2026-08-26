@@ -3,6 +3,16 @@
 hash = sha256(prev_hash + canonical_json(entry_without_hash)); genesis prev
 is 64 zeros. verify_chain() reports the first bad index. A lock file with a
 30-second stale-break serialises writers (Windows-safe, no fcntl).
+
+Encoding: the file is written as pure ASCII, with every non-ASCII character
+escaped (the rupee sign is stored as the six characters `\\u20b9`). The chain
+is evidence, so it has to read identically everywhere: a raw UTF-8 byte in a
+BOM-less file gets decoded as cp1252 by the default Windows toolchain, which
+is what turns a rupee sign into three mojibake characters. An escape has no
+such ambiguity, and `json.loads` restores the exact character on the way back
+in. This is a serialisation choice only - hashes are computed over
+`canonical_json`, which is unchanged, so chains written before this still
+verify. See tests/test_chainlog.py for the round-trip.
 """
 from __future__ import annotations
 
@@ -89,7 +99,7 @@ def append(actor: str, event: str, why: str, data: dict[str, Any]) -> dict[str, 
         }
         entry["hash"] = hashlib.sha256((prev_hash + canonical_json(entry)).encode("utf-8")).hexdigest()
         with chain_path(actor).open("a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            f.write(json.dumps(entry, ensure_ascii=True) + "\n")
         return entry
 
 

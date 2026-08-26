@@ -8,6 +8,7 @@ import CartDrawer from "./components/CartDrawer.jsx";
 import Home from "./pages/Home.jsx";
 import Product from "./pages/Product.jsx";
 import Checkout from "./pages/Checkout.jsx";
+import Console from "./pages/Console.jsx";
 import "./index.css";
 
 // Each shop loads only its own typefaces, so the brands never share a face.
@@ -18,23 +19,44 @@ fontLink.rel = "stylesheet";
 fontLink.href = brand.fontHref;
 document.head.appendChild(fontLink);
 
+// The shopper's shop: header, cart drawer, the widget in the corner.
+function Storefront({ children }) {
+  return (
+    <CartProvider>
+      <Header />
+      {children}
+      <CartDrawer />
+      <footer className="mt-20 border-t border-line py-8 text-center text-sm text-muted">
+        {brand.name} — {brand.footerNote}. Razorpay test mode; no real money moves.
+      </footer>
+    </CartProvider>
+  );
+}
+
+// The merchant's console is the same business but not the same room: no
+// basket, no cart drawer, nothing that belongs to a shopper (spec 6.2).
+function Backoffice({ children }) {
+  return (
+    <>
+      {children}
+      <footer className="mt-20 border-t border-line py-8 text-center text-sm text-muted">
+        {brand.name} merchant console — your shop's data only.
+      </footer>
+    </>
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
-      <CartProvider>
-        <div className="min-h-screen bg-paper text-ink">
-          <Header />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/product/:id" element={<Product />} />
-            <Route path="/checkout" element={<Checkout />} />
-          </Routes>
-          <CartDrawer />
-          <footer className="mt-20 border-t border-line py-8 text-center text-sm text-muted">
-            {brand.name} — {brand.footerNote}. Razorpay test mode; no real money moves.
-          </footer>
-        </div>
-      </CartProvider>
+      <div className="min-h-screen bg-paper text-ink">
+        <Routes>
+          <Route path="/" element={<Storefront><Home /></Storefront>} />
+          <Route path="/product/:id" element={<Storefront><Product /></Storefront>} />
+          <Route path="/checkout" element={<Storefront><Checkout /></Storefront>} />
+          <Route path="/console" element={<Backoffice><Console /></Backoffice>} />
+        </Routes>
+      </div>
     </BrowserRouter>
   );
 }

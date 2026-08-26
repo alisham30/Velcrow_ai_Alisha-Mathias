@@ -1,4 +1,5 @@
 import { brand, TRUST_BASE } from "./brand.js";
+import { shopperKey } from "./shopperKey.js";
 
 // Typed errors from the backend (spec 6.6) surface as ApiError so the UI can
 // branch on `code` and show `why` and `available_actions`.
@@ -52,18 +53,41 @@ export const shop = {
       body: payload,
       headers: { Authorization: `Mandate ${mandateToken}` },
     }),
+  // Merchant console (spec 6.2). Every call goes to THIS shop's apiBase, so a
+  // console can only ever read its own merchant's data (spec 14).
   demandLedger: () => request(brand.apiBase, "/merchant/demand-ledger"),
+  summary: () => request(brand.apiBase, "/merchant/summary"),
+  reservations: () => request(brand.apiBase, "/merchant/reservations"),
+  restock: (itemId, variant, qty) =>
+    request(brand.apiBase, "/admin/restock", {
+      method: "POST",
+      body: { item_id: itemId, variant, qty },
+    }),
+  setCheatMode: (on) =>
+    request(brand.apiBase, "/admin/cheat-mode", { method: "POST", body: { on } }),
   catalog: () => request(brand.apiBase, "/catalog"),
   product: (id) => request(brand.apiBase, `/product/${id}`),
   createCart: () => request(brand.apiBase, "/cart", { method: "POST", body: {} }),
   getCart: (cartId) => request(brand.apiBase, `/cart/${cartId}`),
   patchCart: (cartId, op) => request(brand.apiBase, `/cart/${cartId}`, { method: "PATCH", body: op }),
   coupons: (cartId) => request(brand.apiBase, `/cart/${cartId}/coupons`, { method: "POST", body: {} }),
+  // The shopper key travels with every order (spec 7.3). Without it an order
+  // is anonymous forever and reorder can never find it - which is exactly how
+  // purchases made through this checkout used to vanish from "my usual order".
   order: (cartId, mandateToken, idemKey) =>
     request(brand.apiBase, "/order", {
       method: "POST",
-      body: { cart_id: cartId },
+      body: {
+        cart_id: cartId,
+        shopper_ref: shopperKey.ref(),
+        contact: shopperKey.contact(),
+      },
       headers: { Authorization: `Mandate ${mandateToken}`, "Idempotency-Key": idemKey },
+    }),
+  identify: (contactText) =>
+    request(brand.apiBase, "/shopper/identify", {
+      method: "POST",
+      body: { contact: contactText, shopper_ref: shopperKey.ref() },
     }),
   getOrder: (txnRef) => request(brand.apiBase, `/order/${txnRef}`),
 };

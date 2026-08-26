@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { shop, trust } from "../api.js";
+import { shopperKey } from "../shopperKey.js";
 import { brand, variantLabel } from "../brand.js";
 import { rupees } from "../money.js";
 import { useCart } from "../store.jsx";
@@ -195,8 +196,18 @@ function OutOfStock({ product, variant, label, restockDate, canReserve, hasVaria
     setError(null);
     try {
       const mandate = await trust.issueMandate([brand.shopId]);
+      // Reserving is the one place a shopper already types a contact, so it is
+      // where the portable half of their key gets established (spec 7.3). It is
+      // remembered here so checkout and the widget never ask for it again.
+      shopperKey.remember(contact);
       const res = await shop.reserve(
-        { item_id: product.id, variant, contact_ref: contact.trim(), qty },
+        {
+          item_id: product.id,
+          variant,
+          contact_ref: contact.trim(),
+          qty,
+          shopper_ref: shopperKey.ref(),
+        },
         mandate.token,
       );
       setReceipt(res);

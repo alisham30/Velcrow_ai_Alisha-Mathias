@@ -338,3 +338,83 @@ def test_empty_search_returns_the_whole_shelf_not_a_denial(shop_ctx):
 def test_successful_search_does_not_ship_the_whole_catalog(shop_ctx):
     ctx = {"shop_url": "http://testshop", "shop_id": "freshkart", "cart_id": shop_ctx["cart_id"]}
     assert "catalog_overview" not in tools.search_catalog(ctx, query="lemons")
+
+
+# -- the reasoning strip (spec 6.5) ----------------------------------------
+# The strip under each reply is the proof the agent chose its own actions, so
+# it is treated as a product surface: every line it shows is built server-side
+# and asserted complete here. A blank bullet would silently read as "the agent
+# had no reason", which is exactly the claim the strip exists to defend.
+
+def test_every_tool_event_carries_a_complete_display_line(shop_ctx, monkeypatch):
+    monkeypatch.setattr(llm, "plan", _scripted(
+        {"content": "", "tool_calls": [{"id": "c1", "name": "search_catalog",
+                                        "args": {"query": "lemons", "max_price_paise": 10000,
+                                                 "reason": "find lemons under the stated ceiling"}}]},
+        {"content": "", "tool_calls": [{"id": "c2", "name": "add_to_cart",
+                                        "args": {"item_id": "lemons-1kg", "qty": 2,
+                                                 "reason": "add the 1 kg pack twice"}}]},
+        {"content": "Added 2 kg of lemons.", "tool_calls": []},
+    ))
+    run = runtime.new_run("freshkart")
+    _run(run, shop_ctx, "add 2 kg lemons under Rs 100")
+
+    steps = [e for e in run.events if e["kind"] == "tool"]
+    assert len(steps) == 2
+    for step in steps:
+        for field in ("call_display", "result_display", "why_display"):
+            assert field in step, f"{field} missing from the trace event"
+            assert step[field].strip(), f"{field} is blank; the strip would render an empty bullet"
+
+    assert steps[0]["call_display"] == 'search_catalog(query="lemons", max_price_paise=10000)'
+    assert steps[0]["result_display"].startswith("1 match(es), best Lemons (1 kg) at ")
+    assert steps[0]["why_display"] == "find lemons under the stated ceiling"
+    assert steps[1]["call_display"] == 'add_to_cart(item_id="lemons-1kg", qty=2)'
+    assert "ms" in steps[1]["result_display"]
+
+
+def test_a_reasonless_tool_call_still_renders_a_readable_line(shop_ctx, monkeypatch):
+    """The model can omit `reason`. The strip must say so, not go blank."""
+    monkeypatch.setattr(llm, "plan", _scripted(
+        {"content": "", "tool_calls": [{"id": "c1", "name": "view_cart", "args": {}}]},
+        {"content": "Your basket is empty.", "tool_calls": []},
+    ))
+    run = runtime.new_run("freshkart")
+    _run(run, shop_ctx, "what is in my cart")
+
+    step = next(e for e in run.events if e["kind"] == "tool")
+    assert step["call_display"] == "view_cart()"
+    assert step["why_display"] == "no reason given"
+    assert step["result_display"].strip()
+
+
+def test_a_refused_tool_call_still_carries_its_display_line(shop_ctx, monkeypatch):
+    """A failure is part of the reasoning: the strip shows what was tried."""
+    monkeypatch.setattr(llm, "plan", _scripted(
+        {"content": "", "tool_calls": [{"id": "x", "name": "add_to_cart",
+                                        "args": {"item_id": "ghee-500ml", "qty": 1,
+                                                 "reason": "shopper asked for ghee"}}]},
+        {"content": "Ghee is out of stock.", "tool_calls": []},
+    ))
+    run = runtime.new_run("freshkart")
+    _run(run, shop_ctx, "add ghee")
+
+    step = next(e for e in run.events if e["kind"] == "tool")
+    assert step["ok"] is False
+    assert step["call_display"] == 'add_to_cart(item_id="ghee-500ml", qty=1)'
+    assert "refused" in step["result_display"]
+    assert step["why_display"] == "shopper asked for ghee"
+
+
+def test_money_in_the_strip_is_the_rupee_sign_not_mojibake(shop_ctx, monkeypatch):
+    monkeypatch.setattr(llm, "plan", _scripted(
+        {"content": "", "tool_calls": [{"id": "c1", "name": "search_catalog",
+                                        "args": {"query": "lemons", "reason": "find lemons"}}]},
+        {"content": "Found them.", "tool_calls": []},
+    ))
+    run = runtime.new_run("freshkart")
+    _run(run, shop_ctx, "find lemons")
+
+    step = next(e for e in run.events if e["kind"] == "tool")
+    assert "\u20b9" in step["result_display"]
+    assert "\u00e2" not in step["result_display"]  # the cp1252 mojibake lead byte

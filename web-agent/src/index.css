@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+/* VelcrowAI's own identity (spec 11), the same one the widget wears inside
+   both shops: near-black ink, square corners, plain grotesque type. It is
+   deliberately not either merchant's brand, because this app works for the
+   shopper rather than for a shop. No gradients, no glow, no sparkle. */
+:root {
+  --ink: #14161a;
+  --ink-soft: #3f4650;
+  --muted: #6b7280;
+  --line: #d9dbe0;
+  --line-soft: #e6e7ea;
+  --paper: #f7f8f9;
+  --card: #ffffff;
+  --danger: #b3402a;
+  --danger-soft: #fbeae5;
+  --good: #1c5d3c;
+  --good-soft: #e7f0e6;
+  --warn-soft: #fdf1e7;
+  --warn-line: #e6c9a8;
+  --warn-ink: #7a4a12;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-line: var(--warn-line);
+  --color-warn-ink: var(--warn-ink);
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.label {
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.9; }
+}
+.skeleton {
+  animation: pulse-soft 1.4s ease-in-out infinite;
+  background: var(--line);
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+.dot {
+  animation: blink 1s infinite;
+}

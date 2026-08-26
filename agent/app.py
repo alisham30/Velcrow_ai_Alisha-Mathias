@@ -25,8 +25,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
-from agent import llm, runtime
-from common import approval, chainlog, errors, mandate, wallet
+from agent import buyer, llm, runtime
+from common import approval, chainlog, errors, mandate, money, trust, wallet
 
 # The merchants that have installed the widget. data-shop on the script tag
 # selects one; the widget learns everything else from /agent/config.
@@ -75,7 +75,7 @@ def create_app() -> FastAPI:
     @app.get("/health")
     def health() -> dict[str, Any]:
         return {"service": "velcrow-agent", "form": "trust-core + tool-calling agent",
-                "phase": 4, "model": llm.MODEL,
+                "phase": 5, "model": llm.MODEL,
                 "tools": [t["function"]["name"] for t in llm.TOOLS],
                 "shops": sorted(INSTALLED_SHOPS)}
 
@@ -83,8 +83,10 @@ def create_app() -> FastAPI:
 
     @app.get("/velcrow.js")
     def widget_bundle() -> FileResponse:
+        # no-store, not no-cache: a demo must never be showing a stale bundle,
+        # and a revalidation the browser may skip is not a guarantee.
         return FileResponse(WIDGET_JS, media_type="application/javascript",
-                            headers={"Cache-Control": "no-cache"})
+                            headers={"Cache-Control": "no-store"})
 
     @app.get("/agent/config")
     def widget_config(shop: str = "grocery") -> dict[str, Any]:
@@ -95,7 +97,14 @@ def create_app() -> FastAPI:
                 f"no shop '{shop}' has installed this widget; "
                 f"expected one of {sorted(INSTALLED_SHOPS)}")
         return {"shop": shop, "shop_id": installed["shop_id"], "shop_name": installed["name"],
-                "api_base": installed["url"], "cart_storage_key": f"velcrow-cart-{installed['shop_id']}"}
+                "api_base": installed["url"],
+                "cart_storage_key": f"velcrow-cart-{installed['shop_id']}",
+                # Browser-held, per shop, so "my usual order" can find a past
+                # basket without an account (spec 14 bans accounts). Both names
+                # are keyed on shop_id and MUST match web-shop/src/shopperKey.js
+                # exactly - a disagreement silently splits one shopper in two.
+                "shopper_storage_key": f"velcrow-shopper-{installed['shop_id']}",
+                "contact_storage_key": f"velcrow-contact-{installed['shop_id']}"}
 
     # -- agent loop (spec 6.3) ----------------------------------------------
 
@@ -130,7 +139,9 @@ def create_app() -> FastAPI:
                         f"shopper asked the agent at {installed['name']}: {message!r}",
                         {"run_id": run.run_id, "shop_id": installed["shop_id"], "cart_id": cart_id})
         asyncio.create_task(runtime.run_turn(
-            run, installed, cart_id, message, body.get("history") or [], claims))
+            run, installed, cart_id, message, body.get("history") or [], claims,
+            mandate_token=token, shopper_ref=str(body.get("shopper_ref") or ""),
+            contact_key=str(body.get("contact_key") or "")))
         return {"run_id": run.run_id, "shop_id": installed["shop_id"], "mandate_token": token}
 
     @app.get("/agent/run/{run_id}/events")
@@ -160,6 +171,330 @@ def create_app() -> FastAPI:
         if run is None:
             raise errors.NotFound(f"no such run '{run_id}'", run_id=run_id)
         return {"run_id": run_id, "shop_id": run.shop_id, "done": run.done, "events": run.events}
+
+    # -- comeback sale (spec 7.2): the agent acts with nobody shopping -------
+
+    @app.post("/callback/restock")
+    async def restock_callback(request: Request) -> dict[str, Any]:
+        """The shop says a reserved item is back. Nobody is at the keyboard.
+
+        This is the one path in the system that starts without a shopper, so
+        it is also the one that most needs a gate: the reservation's session
+        mandate is re-checked HERE, before an offer is ever put in front of
+        anyone. An expired or revoked mandate means the agent stays silent
+        rather than reopening a conversation the shopper never authorised.
+        """
+        body = await json_body(request)
+        for field in ("shop_id", "res_id", "product_id", "product_name", "mandate_jti"):
+            if field not in body:
+                raise errors.BadRequest(f"missing field '{field}'")
+
+        shopper_ref = str(body.get("shopper_ref") or "")
+        contact_key = str(body.get("contact_key") or "")
+        jti = body["mandate_jti"]
+        live = mandate.is_live(jti)
+        if not live.ok:
+            chainlog.append("buyer", "comeback_declined",
+                            f"{body['product_name']} is back at {body['shop_id']}, but the "
+                            f"reservation's mandate {jti[:8]} is {live.reason}; no offer made",
+                            {"res_id": body["res_id"], "shop_id": body["shop_id"],
+                             "jti": jti, "reason": live.reason})
+            return {"offered": False, "why": f"mandate {live.reason}"}
+        if not shopper_ref and not contact_key:
+            chainlog.append("buyer", "comeback_declined",
+                            f"{body['product_name']} is back at {body['shop_id']}, but the "
+                            "reservation carries neither a shopper reference nor a contact key "
+                            "to reach; no offer made",
+                            {"res_id": body["res_id"], "shop_id": body["shop_id"]})
+            return {"offered": False, "why": "no shopper_ref or contact_key on the reservation"}
+
+        offer = runtime.hold_offer(shopper_ref, {
+            "contact_key": contact_key,
+            "kind": "restock",
+            "shop_id": body["shop_id"],
+            "shop_url": body.get("shop_url", ""),
+            "res_id": body["res_id"],
+            "item_id": body["product_id"],
+            "product_name": body["product_name"],
+            "variant": str(body.get("variant") or ""),
+            "qty": int(body.get("qty", 1) or 1),
+            "unit_price_paise": int(body.get("unit_price_paise", 0)),
+            "unit_price_display": money.rupees(int(body.get("unit_price_paise", 0))),
+            "line_total_display": money.rupees(
+                int(body.get("unit_price_paise", 0)) * int(body.get("qty", 1) or 1)),
+            "contact_ref": body.get("contact_ref", ""),
+            "mandate_jti": jti,
+        })
+        chainlog.append("buyer", "comeback_offered",
+                        f"{body['product_name']} "
+                        f"{('(' + str(body.get('variant')) + ') ') if body.get('variant') else ''}"
+                        f"is back at {body['shop_id']}; mandate {jti[:8]} still valid, so the "
+                        f"agent is holding a one-tap offer for reservation {body['res_id']}. "
+                        "Nothing is bought without the shopper's approval",
+                        {"offer_id": offer["offer_id"], "res_id": body["res_id"],
+                         "shop_id": body["shop_id"], "shopper_ref": shopper_ref, "jti": jti})
+        return {"offered": True, "offer_id": offer["offer_id"]}
+
+    @app.get("/agent/offers")
+    def agent_offers(shop: str = "grocery", shopper_ref: str = "",
+                     contact_key: str = "") -> dict[str, Any]:
+        """What the agent has been waiting to tell this shopper. The widget
+        asks on open; the offer was created while nobody was watching."""
+        installed = INSTALLED_SHOPS.get(shop)
+        if installed is None:
+            raise errors.BadRequest(f"unknown shop '{shop}'")
+        return {"offers": runtime.pending_offers(shopper_ref, installed["shop_id"], contact_key)}
+
+    @app.post("/agent/offers/{offer_id}/decline")
+    async def decline_offer(offer_id: str) -> dict[str, Any]:
+        offer = runtime.take_offer(offer_id)
+        if offer is None:
+            raise errors.NotFound(f"no such offer '{offer_id}'", offer_id=offer_id)
+        chainlog.append("buyer", "comeback_declined",
+                        f"shopper declined the restock offer on {offer['product_name']} "
+                        f"at {offer['shop_id']}; nothing added, nothing charged",
+                        {"offer_id": offer_id, "res_id": offer["res_id"]})
+        return {"offer_id": offer_id, "declined": True}
+
+    # -- consumer buyer agent (spec 8) --------------------------------------
+
+    @app.post("/buyer/run", status_code=201)
+    async def buyer_start(request: Request) -> dict[str, Any]:
+        """Turn a stated goal into ranked options from every shop.
+
+        The mandate is issued FROM the goal, so the caps the wallet later
+        enforces are the ones the shopper actually stated rather than a
+        default someone chose for them.
+        """
+        body = await json_body(request)
+        goal = str(body.get("goal", "")).strip()
+        if not goal:
+            raise errors.BadRequest("a goal is required, e.g. 'cotton kurti size M under 1500'")
+
+        state = buyer.new_run(goal)
+        rules = buyer.parse_goal(goal)
+        state["rules"] = rules
+        buyer.say(state, "goal", goal)
+
+        missing = buyer.missing_from(rules)
+        if missing:
+            # A normal clarification, NOT a red card (spec 8).
+            state["status"] = "needs_clarification"
+            buyer.say(state, "ask",
+                      f"Before I go looking I need {missing}. "
+                      + ("Tell me roughly what you want to spend."
+                         if missing == "a budget" else "What are you after?"),
+                      missing=missing)
+            chainlog.append("buyer", "buyer_needs_clarification",
+                            f"goal {goal!r} is missing {missing}; asked rather than guessed",
+                            {"run_id": state["run_id"], "missing": missing})
+            return buyer.save_run(state)
+
+        token = mandate.issue(rules["budget_paise"], rules["budget_paise"],
+                              sorted(s["shop_id"] for s in INSTALLED_SHOPS.values()))
+        claims = mandate.verify(token)
+        state["mandate_token"] = token
+        state["mandate_jti"] = claims["jti"]
+        chainlog.append("buyer", "mandate_issued",
+                        f"buyer mandate issued from the goal {goal!r}: "
+                        f"cap {rules['budget_display']} per transaction and in total, "
+                        f"valid at {len(INSTALLED_SHOPS)} shop(s)",
+                        {"run_id": state["run_id"], "jti": claims["jti"],
+                         "max_total": rules["budget_paise"]})
+
+        discovered = await asyncio.get_running_loop().run_in_executor(
+            None, buyer.discover, list(INSTALLED_SHOPS.values()))
+        for entry in discovered:
+            if "error" in entry:
+                buyer.say(state, "note",
+                          f"{entry['shop']['name']} did not answer, so it is not in this "
+                          f"comparison ({entry['error']}).")
+
+        options = buyer.rank(buyer.collect_options(discovered, rules), rules)
+        state["options"] = options[:buyer.MAX_OPTIONS + 2]
+        buyer.log_options(state)
+
+        sellable = [o for o in state["options"] if o["selectable"]]
+        if not state["options"]:
+            state["status"] = "no_match"
+            buyer.say(state, "note",
+                      f"Neither shop lists anything matching {rules['query']!r}. "
+                      "Try naming it differently and I will look again.")
+        elif not sellable:
+            state["status"] = "all_rule_breaking"
+            buyer.say(state, "note",
+                      "I found matches, but every one breaks a rule you set. They are below "
+                      "with the reason, and none can be bought without you changing the rule.")
+        else:
+            state["status"] = "options"
+            best = sellable[0]
+            buyer.say(state, "options",
+                      f"Best fit is {best['name']} at {best['shop_name']} for "
+                      f"{best['price_display']}. Options are ranked on price, how well they fit "
+                      "your rules, how much each shop has earned my trust, and availability.")
+        return buyer.save_run(state)
+
+    @app.get("/buyer/run/{run_id}")
+    def buyer_get(run_id: str) -> dict[str, Any]:
+        """The whole thread. The run id is in the browser's URL, so a refresh
+        or a shared link restores exactly what the shopper was looking at."""
+        state = buyer.load_run(run_id)
+        if state is None:
+            raise errors.NotFound(f"no such run '{run_id}'", run_id=run_id)
+        return state
+
+    @app.post("/buyer/run/{run_id}/choose")
+    async def buyer_choose(run_id: str, request: Request) -> dict[str, Any]:
+        """The human picks one option. Still no money: this produces a quote."""
+        body = await json_body(request)
+        state = buyer.load_run(run_id)
+        if state is None:
+            raise errors.NotFound(f"no such run '{run_id}'", run_id=run_id)
+        chosen = next((o for o in state["options"]
+                       if o["option_id"] == body.get("option_id")), None)
+        if chosen is None:
+            raise errors.BadRequest("that option is not part of this run")
+        if not chosen["selectable"]:
+            # Greyed options are not merely styled - the server refuses them.
+            raise errors.BadRequest(
+                "that option breaks a rule you set: " + "; ".join(chosen["breaks_rules"]))
+
+        if not chosen["in_stock"]:
+            if not chosen["can_reserve"]:
+                raise errors.OutOfStock(
+                    f"{chosen['name']} is out of stock at {chosen['shop_name']} and that shop "
+                    "does not take reservations", available_actions=["SELECT_ALTERNATIVE"],
+                    product_id=chosen["item_id"], variant=chosen["variant"])
+            resp = httpx.post(f"{chosen['shop_url']}/reserve",
+                              json={"item_id": chosen["item_id"], "variant": chosen["variant"],
+                                    "qty": 1, "contact_ref": body.get("contact", "buyer-agent"),
+                                    "shopper_ref": body.get("shopper_ref", "")},
+                              headers={"Authorization": f"Mandate {state['mandate_token']}"},
+                              timeout=15)
+            if resp.status_code >= 400:
+                raise errors.BadRequest(resp.json().get("why", "the shop refused the reservation"))
+            res = resp.json()
+            state["status"] = "reserved"
+            state["chosen"] = chosen
+            buyer.say(state, "reserved",
+                      f"{chosen['name']} is out of stock at {chosen['shop_name']}, so I reserved "
+                      f"it instead — back {res.get('restock_date') or 'date unknown'}. "
+                      "Nothing has been charged.", res_id=res["res_id"])
+            return buyer.save_run(state)
+
+        cart = httpx.post(f"{chosen['shop_url']}/cart", json={}, timeout=15).json()
+        httpx.patch(f"{chosen['shop_url']}/cart/{cart['cart_id']}",
+                    json={"op": "add", "item_id": chosen["item_id"],
+                          "variant": chosen["variant"], "qty": 1}, timeout=15).raise_for_status()
+        order = httpx.post(f"{chosen['shop_url']}/order",
+                           json={"cart_id": cart["cart_id"], "assisted": True,
+                                 "shopper_ref": body.get("shopper_ref", "")},
+                           headers={"Authorization": f"Mandate {state['mandate_token']}",
+                                    "Idempotency-Key": f"buy-{run_id}-{chosen['option_id']}"},
+                           timeout=15)
+        if order.status_code >= 400:
+            payload = order.json()
+            state["status"] = "blocked"
+            buyer.say(state, "blocked", payload.get("why", "the shop refused this order"),
+                      code=payload.get("code", "SHOP_REFUSED"))
+            return buyer.save_run(state)
+
+        quote = order.json()
+        state["chosen"] = chosen
+        state["quote"] = {
+            **quote,
+            "shop_url": chosen["shop_url"], "shop_name": chosen["shop_name"],
+            "charge_display": money.rupees(int(quote["charge_amount"])),
+        }
+        state["status"] = "awaiting_approval"
+        buyer.say(state, "approve",
+                  f"{chosen['name']} from {chosen['shop_name']} comes to "
+                  f"{state['quote']['charge_display']}. Approve it and I will pay; "
+                  "nothing moves until you do.")
+        chainlog.append("buyer", "buyer_quote_ready",
+                        f"buyer chose {chosen['name']} at {chosen['shop_name']} for "
+                        f"{state['quote']['charge_display']}; waiting on the human's approval",
+                        {"run_id": run_id, "txn_ref": quote["txn_ref"],
+                         "shop_id": chosen["shop_id"]})
+        return buyer.save_run(state)
+
+    @app.post("/buyer/run/{run_id}/approve")
+    async def buyer_approve(run_id: str, request: Request) -> dict[str, Any]:
+        """The human's tap. Signs the cart-bound approval and runs the wallet.
+
+        Every refusal below is a red Blocked card (spec 8) and moves the shop's
+        trust score, because a shop that tried to overcharge should rank worse
+        next time rather than merely being logged.
+        """
+        state = buyer.load_run(run_id)
+        if state is None:
+            raise errors.NotFound(f"no such run '{run_id}'", run_id=run_id)
+        quote = state.get("quote")
+        if not quote or state["status"] != "awaiting_approval":
+            raise errors.BadRequest("there is nothing awaiting approval on this run")
+
+        shop_id = state["chosen"]["shop_id"]
+        claims = mandate.verify(state["mandate_token"])
+        amount = int(quote["charge_amount"])
+        appr = approval.issue(shop_id, quote["txn_ref"], quote["line_items"], amount,
+                              claims["jti"])
+        chainlog.append("buyer", "approval_signed",
+                        f"human approved {quote['txn_ref']} from {shop_id} at {amount} paise "
+                        "in the buyer agent; cart-bound approval signed",
+                        {"run_id": run_id, "txn_ref": quote["txn_ref"], "shop_id": shop_id})
+        try:
+            result = wallet.pay(state["mandate_token"], appr, shop_id, amount,
+                                quote["txn_ref"], shop_url=quote["shop_url"])
+        except errors.VelcrowError as exc:
+            kind = ("price_mismatch" if exc.code == "PRICE_CHANGED"
+                    else "invalid_mandate" if exc.code.startswith("MANDATE")
+                    else "cheat_detected")
+            moved = trust.record(shop_id, kind, f"{exc.code} on {quote['txn_ref']}: {exc.why}")
+            state["status"] = "blocked"
+            buyer.say(state, "blocked", exc.why, code=exc.code, trust=moved)
+            chainlog.append("buyer", "buyer_payment_blocked",
+                            f"{shop_id} refused at the wallet ({exc.code}): {exc.why}; "
+                            f"trust {moved['score_before']} -> {moved['score_after']}",
+                            {"run_id": run_id, "code": exc.code, "shop_id": shop_id})
+            return buyer.save_run(state)
+
+        confirmed = False
+        try:
+            confirm = _post_confirm(quote["shop_url"], {
+                "txn_ref": quote["txn_ref"],
+                "razorpay_order_id": result["razorpay_order_id"],
+                "payment_ref": result["payment_ref"]})
+            confirmed = confirm.get("status") == "paid"
+        except Exception as exc:
+            chainlog.append("buyer", "confirm_failed",
+                            f"payment {result['payment_ref']} succeeded but the shop's "
+                            f"/confirm-payment failed: {exc}",
+                            {"run_id": run_id, "txn_ref": quote["txn_ref"]})
+
+        moved = trust.record(shop_id, "clean",
+                             f"charged exactly what was approved on {quote['txn_ref']}")
+        state["status"] = "paid"
+        state["receipt"] = {**result, "confirmed": confirmed,
+                            "charge_display": quote["charge_display"],
+                            "shop_name": quote["shop_name"], "trust": moved}
+        buyer.say(state, "receipt",
+                  f"Paid {quote['charge_display']} to {quote['shop_name']}. "
+                  f"They charged exactly what you approved, so their trust score is now "
+                  f"{moved['score_after']:.2f}.")
+        return buyer.save_run(state)
+
+    @app.get("/buyer/history")
+    def buyer_history(limit: int = 10) -> dict[str, Any]:
+        """History questions answered from the chain log, never a red card
+        (spec 8): what the buyer bought, and what it was refused."""
+        wanted = {"payment_created", "buyer_quote_ready", "buyer_payment_blocked",
+                  "comeback_offered", "buyer_options_ranked"}
+        entries = [e for e in chainlog.tail("buyer", 400) if e["event"] in wanted]
+        return {"entries": entries[-limit:], "trust": trust.all_scores()}
+
+    @app.get("/buyer/trust")
+    def buyer_trust() -> dict[str, Any]:
+        return {"scores": trust.all_scores(), "recent": trust.history(limit=15)}
 
     @app.post("/mandate", status_code=201)
     async def issue_mandate(request: Request) -> dict[str, Any]:

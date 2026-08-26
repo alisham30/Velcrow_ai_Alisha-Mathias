@@ -9,7 +9,7 @@ import sqlite3
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import jwt
 
@@ -89,6 +89,29 @@ def verify(token: str) -> dict[str, Any]:
     if row:
         raise errors.MandateInvalid("mandate has been revoked", jti=claims["jti"])
     return claims
+
+
+class Liveness(NamedTuple):
+    ok: bool
+    reason: str
+
+
+def is_live(jti: str) -> Liveness:
+    """Is this mandate still one the agent may act under, given only its jti?
+
+    Used by the restock callback (spec 7.2), where the original token is long
+    gone and the restock may arrive days after the session ended.
+
+    Revocation is fatal: it means the shopper withdrew consent, so the agent
+    must stay silent. Expiry deliberately is NOT - a session mandate lives an
+    hour and a restock rarely does, and an expired session is not a withdrawn
+    permission. It costs nothing to be wrong in that direction: an offer is
+    only an offer. Money still needs a fresh mandate, a cart-bound approval
+    and the wallet's five checks, none of which this can skip.
+    """
+    with _db() as conn:
+        row = conn.execute("SELECT 1 FROM revoked WHERE jti = ?", (jti,)).fetchone()
+    return Liveness(False, "revoked") if row else Liveness(True, "not revoked")
 
 
 def revoke(jti: str) -> None:
