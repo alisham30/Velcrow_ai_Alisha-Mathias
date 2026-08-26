@@ -46,9 +46,9 @@ export default function SplitNotice() {
   // holds everything the shelf had.
   const reason = none
     ? alreadyHad
-      ? `Your basket already has all ${split.already_in_cart} we had.`
+      ? `Your basket already has all ${split.already_in_cart} we had, so none could be added.`
       : "There were none left on the shelf."
-    : `We only had ${split.added}, so those are in your basket.`;
+    : `We only had ${split.added} more to give, so those are in your basket.`;
 
   return (
     <div
@@ -70,12 +70,8 @@ export default function SplitNotice() {
 
         <dl className="mt-4 space-y-2 text-sm">
           <div className="flex justify-between">
-            <dt className="text-muted">You asked for</dt>
+            <dt className="text-muted">{alreadyHad ? "You wanted, in total" : "You asked for"}</dt>
             <dd className="font-medium">{split.requested}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-muted">Added to your basket</dt>
-            <dd className={`font-medium ${none ? "text-muted" : ""}`}>{split.added}</dd>
           </div>
           {alreadyHad && (
             <div className="flex justify-between">
@@ -83,6 +79,10 @@ export default function SplitNotice() {
               <dd className="font-medium">{split.already_in_cart}</dd>
             </div>
           )}
+          <div className="flex justify-between">
+            <dt className="text-muted">Added just now</dt>
+            <dd className={`font-medium ${none ? "text-muted" : ""}`}>{split.added}</dd>
+          </div>
           <div className="flex justify-between">
             <dt className="text-muted">{held ? "Held for you" : "Not available"}</dt>
             <dd className={`font-medium ${held ? "text-brand" : "text-danger"}`}>
@@ -100,7 +100,8 @@ export default function SplitNotice() {
         <p className="mt-4 text-sm leading-relaxed text-muted">
           {held ? (
             <>
-              {reason} {none ? "All" : "The other"} {split.shortfall}{" "}
+              {reason} {alreadyHad ? "The remaining" : none ? "All" : "The other"}{" "}
+              {split.shortfall}{" "}
               {split.shortfall === 1 ? "is" : "are"} held in your name
               {split.restock_date ? ` and expected back on ${split.restock_date}` : ""}. Nothing
               has been charged for {split.shortfall === 1 ? "it" : "them"} — VelcrowAI will offer{" "}

@@ -314,65 +314,103 @@ function Lab() {
   }, []);
 
   if (err) return <p className="border border-danger/40 bg-danger-soft p-4 text-sm">{err}</p>;
-  if (!d) return <p className="text-sm text-muted">Running {`${20}`} goals both ways…</p>;
+  if (!d) return <p className="text-sm text-muted">Reading the orders…</p>;
 
   const rows = [
-    ["Orders", d.without.orders, d.with_agent.orders],
-    ["Revenue", d.without.revenue_display, d.with_agent.revenue_display],
-    ["Average order", d.without.aov_display, d.with_agent.aov_display],
-    ["Orders with a coupon", d.without.coupon_orders, d.with_agent.coupon_orders],
-    ["Discount given away", d.without.discount_display, d.with_agent.discount_display],
-    ["Sales rescued", d.without.rescued_orders, d.with_agent.rescued_orders],
-    ["Rescued revenue", d.without.rescued_revenue_display, d.with_agent.rescued_revenue_display],
+    ["Orders", d.unassisted.orders, d.assisted.orders],
+    ["Revenue", d.unassisted.revenue_display, d.assisted.revenue_display],
+    ["Average order", d.unassisted.aov_display, d.assisted.aov_display],
+    ["Units sold", d.unassisted.units, d.assisted.units],
+    ["Orders with a coupon", d.unassisted.coupon_orders, d.assisted.coupon_orders],
+    [
+      "Coupon claim rate",
+      `${Math.round(d.unassisted.claim_rate * 100)}%`,
+      `${Math.round(d.assisted.claim_rate * 100)}%`,
+    ],
+    ["Discount given away", d.unassisted.discount_display, d.assisted.discount_display],
+    ["Sales rescued", d.unassisted.rescued_orders, d.assisted.rescued_orders],
+    [
+      "Rescued revenue",
+      d.unassisted.rescued_revenue_display,
+      d.assisted.rescued_revenue_display,
+    ],
   ];
 
   return (
     <>
       <p className="max-w-3xl text-sm text-muted">
-        {d.goals} scripted goals, shopped twice — once by someone on their own, once with the
-        agent.
+        Every figure here comes from orders that were really placed and really paid for, read out
+        of the two shops&rsquo; own databases. Each order was flagged as agent-assisted or not at
+        the moment it was created, so the split is recorded rather than reconstructed.
       </p>
-      <div className="mt-6 overflow-x-auto border border-line-soft bg-card">
-        <table className="w-full min-w-[34rem] text-sm">
-          <thead>
-            <tr className="border-b border-line-soft text-left">
-              <th className="p-3" />
-              <th className="p-3 font-semibold">On their own</th>
-              <th className="p-3 font-semibold">With VelcrowAI</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(([label, a, b]) => (
-              <tr key={label} className="border-b border-line-soft last:border-0">
-                <td className="p-3 text-muted">{label}</td>
-                <td className="p-3">{a}</td>
-                <td className="p-3 font-medium">{b}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
 
-      <div className="mt-5 grid gap-4 sm:grid-cols-3">
-        <Stat label="Net lift" value={d.lift_display} sub={`${d.lift_pct >= 0 ? "+" : ""}${d.lift_pct}% on the same goals`} tone="good" />
-        <Stat
-          label="Of which rescued"
-          value={d.with_agent.rescued_revenue_display}
-          sub="sales the shop had already refused for stock"
-          tone="good"
-        />
-        <Stat
-          label="Coupon margin handed back"
-          value={d.with_agent.discount_display}
-          sub="a cost, not a gain — the merchant chose to offer it"
-        />
-      </div>
+      {d.total_orders === 0 ? (
+        <p className="mt-6 border border-line-soft bg-card p-6 text-sm text-muted">
+          No paid orders yet. Buy something in a storefront on your own, then buy something
+          through the widget, and the comparison fills in.
+        </p>
+      ) : (
+        <>
+          <div className="mt-6 overflow-x-auto border border-line-soft bg-card">
+            <table className="w-full min-w-[34rem] text-sm">
+              <thead>
+                <tr className="border-b border-line-soft text-left">
+                  <th className="p-3" />
+                  <th className="p-3 font-semibold">Without the agent</th>
+                  <th className="p-3 font-semibold">With the agent</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(([label, a, b]) => (
+                  <tr key={label} className="border-b border-line-soft last:border-0">
+                    <td className="p-3 text-muted">{label}</td>
+                    <td className="p-3">{a}</td>
+                    <td className="p-3 font-medium">{b}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {d.comparable && (
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <Stat
+                label="Average order, difference"
+                value={d.aov_delta_display}
+                sub="assisted minus unassisted, on real orders"
+                tone={d.aov_delta_paise > 0 ? "good" : undefined}
+              />
+              <Stat
+                label="Rescued revenue"
+                value={d.assisted.rescued_revenue_display}
+                sub="orders that closed a reservation the shop had refused"
+                tone={d.assisted.rescued_revenue > 0 ? "good" : undefined}
+              />
+            </div>
+          )}
+        </>
+      )}
+
+      {d.notes?.length > 0 && (
+        <ul className="mt-5 space-y-2">
+          {d.notes.map((n, i) => (
+            <li
+              key={i}
+              className="border border-line-soft bg-card p-3 text-xs leading-relaxed text-muted"
+            >
+              {n}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <p className="mt-5 max-w-3xl border border-line-soft bg-card p-4 text-xs leading-relaxed text-muted">
-        <strong className="text-ink">How to read this.</strong> The lift is almost entirely
-        rescued stock-outs — revenue that would otherwise have been zero. Coupons move the other
-        way: claiming them costs the merchant margin and pulls the average order down. Both are
-        shown because a scoreboard that counts only the wins is not evidence. {d.method}
+        <strong className="text-ink">Nothing here is modelled.</strong> An earlier version of this
+        page ran 20 scripted goals through a simulation and multiplied them by assumed
+        follow-through rates, then printed the result beside real rupee figures. It was removed:
+        a scoreboard whose comparison column is a guess is worse than no scoreboard. Where a
+        counterfactual is unavoidable — what a basket would have cost had nobody claimed its
+        coupon — it is computed from that same real order by adding its own discount back.
       </p>
     </>
   );

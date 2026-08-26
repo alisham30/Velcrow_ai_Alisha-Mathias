@@ -53,6 +53,16 @@ export const shopperKey = {
     return read(CONTACT_KEY);
   },
 
+  /** Stop being known on this device. Order history is untouched - it stays
+   *  attached to the contact and comes back if it is typed again. */
+  forget() {
+    try {
+      localStorage.removeItem(CONTACT_KEY);
+    } catch {
+      /* nothing to forget */
+    }
+  },
+
   remember(contactText) {
     const text = (contactText || "").trim();
     if (text) write(CONTACT_KEY, text);

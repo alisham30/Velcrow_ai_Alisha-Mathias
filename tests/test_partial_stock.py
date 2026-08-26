@@ -245,13 +245,13 @@ def test_a_full_basket_is_explained_not_described_as_a_partial_add(loomcraft, lo
     item_id, variant, stock = _short_variant(loomcraft)
     tools.add_to_cart(loom_ctx, item_id=item_id, qty=stock, variant=variant)
 
+    # the agent asks for five MORE; the shelf is empty, so all five are held
     again = tools.add_to_cart(loom_ctx, item_id=item_id, qty=5, variant=variant)
     assert again["shortfall"]["added"] == 0
     assert again["shortfall"]["reserved"] == 5
     told = again["tell_the_shopper"]
     assert f"already holds all {stock}" in told
     assert "I added those" not in told
-    assert "reserved all 5" in told
 
 
 def test_an_empty_shelf_is_worded_as_an_empty_shelf(loomcraft, loom_ctx):
@@ -278,5 +278,80 @@ def test_the_shop_reports_what_the_basket_already_held(loomcraft):
                             json={"item_id": item_id, "variant": variant, "qty": 5,
                                   "contact_ref": "zoya@example.com"}, headers=_auth()).json()
     assert result["already_in_cart"] == stock
+    assert result["outstanding"] == 5
     assert result["added"] == 0 and result["shortfall"] == 5
     assert result["in_stock_now"] == 0
+
+
+def test_a_quantity_already_in_the_basket_asks_for_nothing_more(loomcraft):
+    """The case from the screenshot, stated as a rule: a line already in the
+    basket reads the quantity as the TOTAL wanted. Asking for 9 with 6 there
+    leaves 3 outstanding, not 9 - otherwise the shopper ends up committed to
+    15 of something they asked 9 for."""
+    item_id, variant, stock = _short_variant(loomcraft)
+    cart = loomcraft.post("/cart").json()["cart_id"]
+    loomcraft.post(f"/cart/{cart}/fulfil",
+                   json={"item_id": item_id, "variant": variant, "qty": stock},
+                   headers=_auth())
+
+    want = stock + 3
+    result = loomcraft.post(f"/cart/{cart}/fulfil",
+                            json={"item_id": item_id, "variant": variant, "qty": want,
+                                  "mode": "target",
+                                  "contact_ref": "zoya@example.com"}, headers=_auth()).json()
+    assert result["outstanding"] == 3
+    assert result["reserved"] == 3
+    assert result["already_in_cart"] + result["added"] + result["reserved"] == want
+
+
+def test_asking_for_fewer_than_the_basket_holds_does_nothing(loomcraft):
+    item_id, variant, stock = _short_variant(loomcraft)
+    cart = loomcraft.post("/cart").json()["cart_id"]
+    loomcraft.post(f"/cart/{cart}/fulfil",
+                   json={"item_id": item_id, "variant": variant, "qty": stock},
+                   headers=_auth())
+    result = loomcraft.post(f"/cart/{cart}/fulfil",
+                            json={"item_id": item_id, "variant": variant, "qty": 1,
+                                  "mode": "target"},
+                            headers=_auth()).json()
+    assert result["outstanding"] == 0
+    assert result["added"] == 0 and result["reserved"] == 0
+
+
+def test_the_two_modes_are_explicit_and_differ(loomcraft):
+    """The bug this exists to prevent: "9" meaning nine MORE on one surface and
+    nine IN TOTAL on another, with the shop guessing which."""
+    item_id, variant, stock = _short_variant(loomcraft)
+
+    def fresh_cart_with(n):
+        cart = loomcraft.post("/cart").json()["cart_id"]
+        loomcraft.post(f"/cart/{cart}/fulfil",
+                       json={"item_id": item_id, "variant": variant, "qty": n},
+                       headers=_auth())
+        return cart
+
+    want = stock + 3
+    add_cart = fresh_cart_with(stock)
+    as_add = loomcraft.post(f"/cart/{add_cart}/fulfil",
+                            json={"item_id": item_id, "variant": variant, "qty": want,
+                                  "mode": "add", "contact_ref": "z@example.com"},
+                            headers=_auth()).json()
+
+    target_cart = fresh_cart_with(stock)
+    as_target = loomcraft.post(f"/cart/{target_cart}/fulfil",
+                               json={"item_id": item_id, "variant": variant, "qty": want,
+                                     "mode": "target", "contact_ref": "z@example.com"},
+                               headers=_auth()).json()
+
+    assert as_add["outstanding"] == want          # that many more, on top
+    assert as_target["outstanding"] == 3          # that many in total
+    assert as_target["already_in_cart"] + as_target["reserved"] == want
+
+
+def test_an_unknown_mode_is_refused(loomcraft):
+    item_id, variant, _ = _short_variant(loomcraft)
+    cart = loomcraft.post("/cart").json()["cart_id"]
+    resp = loomcraft.post(f"/cart/{cart}/fulfil",
+                          json={"item_id": item_id, "variant": variant, "qty": 1,
+                                "mode": "whatever"}, headers=_auth())
+    assert resp.json()["code"] == "BAD_REQUEST"

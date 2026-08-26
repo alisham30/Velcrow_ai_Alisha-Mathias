@@ -75,7 +75,10 @@ export const shop = {
   fulfil: (cartId, line, mandateToken) =>
     request(brand.apiBase, `/cart/${cartId}/fulfil`, {
       method: "POST",
-      body: { ...line, contact: shopperKey.contact(), shopper_ref: shopperKey.ref(),
+      // The product page stepper shows what the shopper wants to END UP with,
+      // so 9 with 6 already in the basket means 3 outstanding, not 9 more.
+      body: { ...line, mode: "target",
+              contact: shopperKey.contact(), shopper_ref: shopperKey.ref(),
               contact_ref: shopperKey.contact() },
       headers: { Authorization: `Mandate ${mandateToken}` },
     }),
@@ -99,6 +102,10 @@ export const shop = {
       body: { contact: contactText, shopper_ref: shopperKey.ref() },
     }),
   getOrder: (txnRef) => request(brand.apiBase, `/order/${txnRef}`),
+  lastOrder: (contactKey) =>
+    request(brand.apiBase,
+            `/orders/last?contact_key=${encodeURIComponent(contactKey)}` +
+            `&shopper_ref=${encodeURIComponent(shopperKey.ref())}`),
 };
 
 export const trust = {

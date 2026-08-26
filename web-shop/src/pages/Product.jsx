@@ -11,7 +11,7 @@ import { ErrorBanner } from "../components/States.jsx";
 
 export default function Product() {
   const { id } = useParams();
-  const { add, busy, caps } = useCart();
+  const { add, busy, caps, cart } = useCart();
   const [product, setProduct] = useState(null);
   const [error, setError] = useState(null);
   const [variant, setVariant] = useState(null);
@@ -63,6 +63,13 @@ export default function Product() {
     : { stock: product.stock, restock_date: product.restock_date };
   const inStock = selected && selected.stock > 0;
   const maxQty = selected ? selected.stock : 0;
+
+  // The stepper sets the TOTAL for this line, so the button has to say so when
+  // some are already in the basket: "Add 9" beside 6 already there reads as
+  // fifteen to anyone sensible.
+  const inBasket = (cart?.items || [])
+    .filter((l) => l.item_id === product.id && (l.variant || "") === (variant || ""))
+    .reduce((n, l) => n + l.qty, 0);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
@@ -148,10 +155,19 @@ export default function Product() {
                     }
                     className="flex-1 rounded-control bg-brand px-6 py-3 font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
                   >
-                    {busy ? "Adding…" : `Add ${qty} to basket`}
+                    {busy
+                      ? "Adding…"
+                      : inBasket
+                        ? `Update basket to ${qty}`
+                        : `Add ${qty} to basket`}
                   </button>
                 </div>
                 <p className="mt-3 text-sm text-muted">
+                  {inBasket > 0 && (
+                    <>
+                      {inBasket} already in your basket ·{" "}
+                    </>
+                  )}
                   Line total {rupees(product.price_paise * qty)}
                 </p>
                 {added && (

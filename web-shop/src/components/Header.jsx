@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { brand } from "../brand.js";
 import { useCart } from "../store.jsx";
+import SignIn from "./SignIn.jsx";
 
 export default function Header() {
   const { count, setDrawerOpen } = useCart();
@@ -14,6 +15,8 @@ export default function Header() {
             {brand.strapline}
           </span>
         </Link>
+        <div className="flex items-center gap-2">
+        <SignIn />
         <button
           onClick={() => setDrawerOpen(true)}
           className="relative flex items-center gap-2 rounded-control border border-line bg-card px-4 py-2 text-sm font-semibold hover:border-brand"
@@ -31,6 +34,7 @@ export default function Header() {
             </span>
           )}
         </button>
+        </div>
       </div>
     </header>
   );

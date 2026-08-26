@@ -158,41 +158,119 @@ def test_two_runs_of_the_same_sentence_can_differ(audit):
 
 # -- the Revenue Lab (spec 9) -----------------------------------------------
 
-def test_the_lab_reports_both_sides_and_the_lift(audit):
+def _pay(client, shop_id, items, assisted):
+    """Place and confirm a real order, so the lab has something to measure."""
+    from common import mandate
+
+    cart = client.post("/cart").json()["cart_id"]
+    for item_id, variant, qty in items:
+        client.patch(f"/cart/{cart}",
+                     json={"op": "add", "item_id": item_id, "variant": variant, "qty": qty}
+                     ).raise_for_status()
+    token = mandate.issue(10_000_000, 5_000_000, [shop_id], ttl_seconds=600)
+    order = client.post("/order", json={"cart_id": cart, "assisted": assisted},
+                        headers={"Authorization": f"Mandate {token}"}).json()
+    client.post("/confirm-payment",
+                json={"txn_ref": order["txn_ref"], "razorpay_order_id": "o",
+                      "payment_ref": "p"}).raise_for_status()
+    return order
+
+
+def test_the_lab_measures_real_orders_rather_than_modelling_them(audit, freshkart):
+    """An earlier version invented the comparison from assumed follow-through
+    rates and printed it beside real rupees. Everything here has to come from
+    orders that were actually placed."""
+    _pay(freshkart, "freshkart", [("lemons-1kg", "", 2)], assisted=False)
+    _pay(freshkart, "freshkart", [("basmati-5kg", "", 1)], assisted=True)
+
     body = audit.get("/audit/revenue-lab").json()
-    assert body["goals"] == 20
-    assert len(body["rows"]) == 20
-    assert body["without"]["revenue"] > 0 and body["with_agent"]["revenue"] > 0
-    assert body["lift_display"].startswith("₹")
+    assert body["source"] == "real paid orders from both shop databases"
+    assert body["total_orders"] == 2
+    assert body["unassisted"]["orders"] == 1
+    assert body["assisted"]["orders"] == 1
+    assert body["unassisted"]["revenue"] == 8800          # the real charge
+    assert "goals" not in body and "lift_pct" not in body  # the modelled fields are gone
 
 
-def test_the_lab_shows_what_the_merchant_gives_away_not_only_what_it_gains(audit):
-    """A scoreboard that counts only the wins is not evidence. The coupon
-    money handed back has to be on it."""
+def test_an_empty_shop_reports_nothing_rather_than_a_projection(audit):
     body = audit.get("/audit/revenue-lab").json()
-    assert body["with_agent"]["discount"] > 0
-    assert body["without"]["discount"] == 0        # unclaimed coupons cost nothing
-    assert body["with_agent"]["coupon_orders"] > body["without"]["coupon_orders"]
+    assert body["total_orders"] == 0
+    assert body["assisted"]["revenue"] == 0
+    assert body["unassisted"]["revenue"] == 0
+    assert body["comparable"] is False
+    assert any("cannot be compared" in n for n in body["notes"])
 
 
-def test_the_lift_is_attributed_to_rescued_sales(audit):
-    """The honest reading: the gain comes from sales that would have been
-    zero, not from coupons."""
+def test_the_lab_refuses_to_compare_one_sided_data(audit, freshkart):
+    _pay(freshkart, "freshkart", [("lemons-1kg", "", 1)], assisted=True)
     body = audit.get("/audit/revenue-lab").json()
-    assert body["with_agent"]["rescued_orders"] > 0
-    assert body["with_agent"]["rescued_revenue"] > 0
-    # the lift is essentially the rescued revenue, not a coupon effect
-    assert abs(body["lift_paise"] - body["with_agent"]["rescued_revenue"]) < body["lift_paise"] * 0.5
+    assert body["comparable"] is False
+    assert body["aov_delta_paise"] == 0
+    assert any("No unassisted orders" in n for n in body["notes"])
 
 
-def test_the_lab_states_its_method_rather_than_implying_live_runs(audit):
+def test_the_lab_says_when_the_sample_is_too_small_to_generalise(audit, freshkart):
+    _pay(freshkart, "freshkart", [("lemons-1kg", "", 1)], assisted=False)
     body = audit.get("/audit/revenue-lab").json()
-    assert "not 20 live model conversations" in body["method"]
-    assert "unaided" in body["assumptions"] and "assisted" in body["assumptions"]
+    assert any("tells you what happened, not what will happen" in n for n in body["notes"])
 
 
-def test_the_lab_is_repeatable(audit):
+def test_coupons_are_reported_as_a_cost_not_a_gain(audit, freshkart):
+    _pay(freshkart, "freshkart", [("basmati-5kg", "", 1)], assisted=True)
+    body = audit.get("/audit/revenue-lab").json()
+    assert body["assisted"]["discount"] > 0
+    assert any("margin the merchant handed back" in n for n in body["notes"])
+    # and the counterfactual is taken from the same order, not modelled
+    assert (body["assisted"]["undiscounted"]
+            == body["assisted"]["revenue"] + body["assisted"]["discount"])
+
+
+def test_a_rescued_sale_is_counted_from_the_reservation(audit, loomcraft, monkeypatch):
+    """Rescued revenue is derived from a reservation the shop really refused,
+    not from anything the agent asserts about itself."""
+    import shop.app as shop_app
+    from common import mandate
+
+    class Quiet:
+        @staticmethod
+        def post(*a, **k):
+            raise RuntimeError("agent offline")
+
+    monkeypatch.setattr(shop_app, "httpx", Quiet)
+
+    item_id = variant = None
+    for p in loomcraft.get("/catalog").json():
+        for v in p.get("variants") or []:
+            if v["stock"] == 0:
+                item_id, variant = p["id"], v["label"]
+    assert item_id
+
+    token = mandate.issue(10_000_000, 5_000_000, ["loomcraft"], ttl_seconds=600)
+    loomcraft.post("/reserve",
+                   json={"item_id": item_id, "variant": variant, "qty": 1,
+                         "contact_ref": "z@example.com", "shopper_ref": "shp_z"},
+                   headers={"Authorization": f"Mandate {token}"}).raise_for_status()
+    loomcraft.post("/admin/restock", json={"item_id": item_id, "variant": variant, "qty": 3})
+
+    cart = loomcraft.post("/cart").json()["cart_id"]
+    loomcraft.patch(f"/cart/{cart}",
+                    json={"op": "add", "item_id": item_id, "variant": variant, "qty": 1}
+                    ).raise_for_status()
+    order = loomcraft.post("/order", json={"cart_id": cart, "shopper_ref": "shp_z",
+                                           "assisted": True},
+                           headers={"Authorization": f"Mandate {token}"}).json()
+    loomcraft.post("/confirm-payment",
+                   json={"txn_ref": order["txn_ref"], "razorpay_order_id": "o",
+                         "payment_ref": "p"}).raise_for_status()
+
+    body = audit.get("/audit/revenue-lab").json()
+    assert body["assisted"]["rescued_orders"] == 1
+    assert body["assisted"]["rescued_revenue"] > 0
+    assert any("would otherwise have been zero" in n for n in body["notes"])
+
+
+def test_the_lab_is_repeatable(audit, freshkart):
+    _pay(freshkart, "freshkart", [("lemons-1kg", "", 1)], assisted=True)
     a = audit.get("/audit/revenue-lab").json()
     b = audit.get("/audit/revenue-lab").json()
-    assert a["with_agent"]["revenue"] == b["with_agent"]["revenue"]
-    assert a["without"]["revenue"] == b["without"]["revenue"]
+    assert a["assisted"]["revenue"] == b["assisted"]["revenue"]

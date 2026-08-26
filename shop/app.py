@@ -554,9 +554,21 @@ def create_app() -> FastAPI:
         # the overselling only surfaces at checkout.
         already = sum(l["qty"] for l in db.cart_items(cart_id)
                       if l["item_id"] == item_id and (l["variant"] or "") == variant)
+
+        # "9" means different things depending on who is asking, so the caller
+        # says which rather than the shop guessing:
+        #   add     nine MORE  - the agent, acting on "add one more tomato"
+        #   target  nine TOTAL - a product page whose stepper shows what the
+        #                        shopper wants to end up with
+        # Guessing this wrong is how asking for 9 with 6 already in the basket
+        # ended up reserving 9 and committing the shopper to 15.
+        mode = str(body.get("mode") or "add")
+        if mode not in ("add", "target"):
+            raise errors.BadRequest("mode must be 'add' or 'target'")
+        need = max(0, qty - already) if mode == "target" else qty
         capacity = max(stock - already, 0)
-        added = min(qty, capacity)
-        shortfall = qty - added
+        added = min(need, capacity)
+        shortfall = need - added
         if added:
             db.upsert_line(cart_id, item_id, variant, added)
 
@@ -580,6 +592,8 @@ def create_app() -> FastAPI:
             "product_name": product["name"],
             "variant": variant,
             "requested": qty,
+            "mode": mode,
+            "outstanding": need,
             "added": added,
             "shortfall": shortfall,
             "reserved": reserved,

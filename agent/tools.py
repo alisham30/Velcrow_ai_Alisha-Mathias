@@ -271,10 +271,15 @@ def add_to_cart(ctx: dict[str, Any], item_id: str, qty: int, variant: str | None
         # The wording has to match which of these actually happened. "only 0
         # were in stock, so I added those" is nonsense, and reads as broken.
         already = int(result.get("already_in_cart", 0))
-        if result["added"]:
+        outstanding = int(result.get("outstanding", qty))
+        if result["added"] and already:
+            got = (f"you already had {already}, and only {result['added']} more were in stock, "
+                   "so I added those")
+        elif result["added"]:
             got = f"only {result['added']} of the {qty} were in stock, so I added those"
         elif already:
-            got = f"your basket already holds all {already} they had"
+            got = (f"your basket already holds all {already} they had, so none of the "
+                   f"{outstanding} you still wanted could be added")
         else:
             got = f"there were none left of the {qty} you asked for"
 
