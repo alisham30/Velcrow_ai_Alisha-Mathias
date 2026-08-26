@@ -73,12 +73,14 @@ export default function Console() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [summary, ledger, reservations] = await Promise.all([
+      const [summary, ledger, reservations, proposals, strategy] = await Promise.all([
         shop.summary(),
         shop.demandLedger(),
         shop.reservations(),
+        shop.proposals("open").catch(() => ({ proposals: [] })),
+        shop.strategy().catch(() => null),
       ]);
-      setData({ summary, ledger, reservations });
+      setData({ summary, ledger, reservations, proposals, strategy });
     } catch (err) {
       setError(err.why || err.message);
     }
@@ -107,6 +109,57 @@ export default function Console() {
             ? `${reached} waiting shopper${reached > 1 ? "s were" : " was"} offered it — ` +
               `they now decide, nothing is charged.`
             : "Nobody was waiting on it, so no one was contacted."),
+      });
+      await load();
+    } catch (err) {
+      setFlash({ tone: "bad", text: err.why || err.message });
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function runGrowthAgent() {
+    setBusy("agent");
+    setFlash(null);
+    try {
+      const run = await shop.runGrowthAgent();
+      const n = (run.proposals || []).length;
+      setFlash({
+        tone: "good",
+        text:
+          n > 0
+            ? `The growth agent looked at your numbers and made ${n} proposal${
+                n > 1 ? "s" : ""
+              }. Nothing has changed — they are below for you to decide on.`
+            : `The growth agent looked at your numbers and proposed nothing. ${run.summary}`,
+      });
+      await load();
+    } catch (err) {
+      setFlash({ tone: "bad", text: err.why || err.message });
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function decide(prop, decision) {
+    setBusy(prop.prop_id);
+    setFlash(null);
+    try {
+      const reason =
+        decision === "reject" ? window.prompt("Why are you rejecting it?") ?? "" : "";
+      const result = await shop.decideProposal(prop.prop_id, decision, reason);
+      const learned = result.learned || {};
+      setFlash({
+        tone: decision === "approve" ? "good" : "bad",
+        text:
+          (decision === "approve"
+            ? `Applied. ${JSON.stringify(result.applied)}. `
+            : "Rejected, and nothing was changed. ") +
+          `The agent now rates "${prop.kind}" ${learned.approvals ?? 0} approved to ${
+            learned.rejections ?? 0
+          } rejected, so it will lead with it ${
+            decision === "approve" ? "more" : "less"
+          } often.`,
       });
       await load();
     } catch (err) {
@@ -226,6 +279,92 @@ export default function Console() {
                 </div>
               ))}
             </div>
+          </Section>
+
+          <Section
+            title="Growth agent"
+            note="Runs on its own every hour, and on demand here. It reads your sales, your lost demand and your margins, tests an idea against margin before suggesting it, and is allowed to come back with nothing. It cannot change stock or pricing — only you can, below."
+            right={
+              <button
+                onClick={runGrowthAgent}
+                disabled={busy === "agent"}
+                className="rounded-control bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep disabled:bg-muted"
+              >
+                {busy === "agent" ? "Thinking…" : "Run now"}
+              </button>
+            }
+          >
+            {(data.proposals?.proposals || []).length === 0 ? (
+              <p className="rounded-card border border-line bg-card p-6 text-sm text-muted">
+                Nothing proposed right now. That is a normal outcome — if your stock is healthy
+                and nothing is being refused, there is nothing worth doing.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {data.proposals.proposals.map((p) => (
+                  <div key={p.prop_id} className="rounded-card border border-line bg-card p-5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <p className="brand-label text-xs font-bold text-accent-ink">{p.kind}</p>
+                      <p className="font-mono text-[11px] text-muted">{p.prop_id}</p>
+                    </div>
+                    <p className="mt-2 text-sm leading-relaxed">{p.rationale}</p>
+                    {Object.keys(p.numbers || {}).length > 0 && (
+                      <dl className="mt-3 grid gap-x-6 gap-y-1 text-xs text-muted sm:grid-cols-2">
+                        {Object.entries(p.numbers)
+                          .filter(([, v]) => typeof v !== "object")
+                          .slice(0, 6)
+                          .map(([k, v]) => (
+                            <div key={k} className="flex justify-between gap-3">
+                              <dt>{k.replace(/_/g, " ")}</dt>
+                              <dd className="font-medium text-ink">{String(v)}</dd>
+                            </div>
+                          ))}
+                      </dl>
+                    )}
+                    <div className="mt-4 flex gap-3">
+                      <button
+                        onClick={() => decide(p, "approve")}
+                        disabled={busy === p.prop_id}
+                        className="rounded-control bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep disabled:bg-muted"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => decide(p, "reject")}
+                        disabled={busy === p.prop_id}
+                        className="rounded-control border border-line px-4 py-2 text-sm font-semibold text-muted hover:border-danger hover:text-danger disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {data.strategy && (
+              <div className="mt-4 rounded-card border border-line bg-card p-4">
+                <p className="brand-label text-xs font-semibold text-muted">
+                  What it has learned from you
+                </p>
+                <div className="mt-3 space-y-1.5">
+                  {Object.entries(data.strategy.arms).map(([arm, a]) => (
+                    <div key={arm} className="flex items-center gap-3 text-xs">
+                      <span className="w-24 text-ink">{arm.replace(/_/g, " ")}</span>
+                      <div className="h-1.5 flex-1 bg-line">
+                        <div className="h-full bg-brand" style={{ width: `${a.mean * 100}%` }} />
+                      </div>
+                      <span className="w-28 text-right text-muted">
+                        {a.approvals} yes · {a.rejections} no
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-muted">
+                  Every decision you make here shifts which strategy it tries first next time.
+                </p>
+              </div>
+            )}
           </Section>
 
           <Section

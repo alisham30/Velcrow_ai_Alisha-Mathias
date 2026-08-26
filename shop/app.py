@@ -100,6 +100,12 @@ def create_app() -> FastAPI:
             raise e
         return claims
 
+    def all_coupons() -> list[dict[str, Any]]:
+        """Config coupons plus any an approved campaign created, until it
+        lapses. An approved proposal has to change what shoppers actually pay,
+        or approving it means nothing."""
+        return [*cfg["coupons"], *db.runtime_coupons()]
+
     def check_stock(item_id: str, variant: str, qty: int) -> None:
         p = db.product(item_id)
         if p is None:
@@ -221,10 +227,10 @@ def create_app() -> FastAPI:
     async def cart_coupons(cart_id: str, request: Request) -> dict[str, Any]:
         body = await json_body(request)
         view = cart_view(cart_id)
-        result = coupon_engine.evaluate(view["items"], cfg["coupons"])
+        result = coupon_engine.evaluate(view["items"], all_coupons())
         code = body.get("code")
         if code:
-            match = next((c for c in cfg["coupons"] if c["code"] == code), None)
+            match = next((c for c in all_coupons() if c["code"] == code), None)
             if match is None:
                 raise errors.CouponIneligible(f"no such coupon '{code}'", coupon_code=code,
                                               unmet_condition="coupon does not exist at this shop")
@@ -251,7 +257,7 @@ def create_app() -> FastAPI:
                 raise errors.BadRequest("cart is empty; nothing to order", cart_id=cart_id)
             for l in view["items"]:
                 check_stock(l["item_id"], l["variant"], l["qty"])
-            best = coupon_engine.evaluate(view["items"], cfg["coupons"])["best"]
+            best = coupon_engine.evaluate(view["items"], all_coupons())["best"]
             charge = view["subtotal_paise"] - best["discount_paise"]
             if charge > claims["max_per_txn"]:
                 e = errors.OverCap(
@@ -721,6 +727,119 @@ def create_app() -> FastAPI:
                            if cheat["on"] else "/order quotes the true cart total again"),
                         {"on": cheat["on"]})
         return {"shop_id": shop_id, "cheat_mode": cheat["on"]}
+
+    # -- what the autonomous merchant agent reasons from (spec 7.5) --------
+    # Margins and cost prices are merchant-internal and never leave these
+    # routes; public_product() strips cost_price_paise from every shopper-
+    # facing response, and the buyer surface has no route to any of this.
+
+    @app.get("/merchant/metrics")
+    def merchant_metrics(days: float = 7.0) -> dict[str, Any]:
+        m = db.sales_metrics(days)
+        rows = []
+        for item_id, p in db.catalog.items():
+            sold = m["per_item"].get(item_id, {"units": 0, "revenue_paise": 0})
+            stock = sum(r["stock"] for r in db.stock_map(item_id))
+            rows.append({
+                "item_id": item_id, "name": p["name"], "category": p["category"],
+                "price_paise": p["price_paise"],
+                "units_sold": sold["units"], "revenue_paise": sold["revenue_paise"],
+                "stock": stock,
+                # How long the shelf lasts at the current rate. None means it is
+                # not moving at all, which is a different problem from slow.
+                "days_of_stock": (round(stock / (sold["units"] / m["days"]), 1)
+                                  if sold["units"] else None),
+            })
+        return {"shop_id": shop_id, **m, "items": sorted(
+            rows, key=lambda r: (-r["revenue_paise"], r["item_id"]))}
+
+    @app.get("/merchant/margins")
+    def merchant_margins() -> dict[str, Any]:
+        rows = []
+        for item_id, p in db.catalog.items():
+            cost = int(p.get("cost_price_paise", 0))
+            price = int(p["price_paise"])
+            rows.append({
+                "item_id": item_id, "name": p["name"],
+                "price_paise": price, "cost_paise": cost,
+                "margin_paise": price - cost,
+                "margin_pct": round((price - cost) / price * 100, 1) if price else 0.0,
+                # The largest discount that still clears cost. Anything past
+                # this sells at a loss, which is the line the agent must not
+                # propose crossing.
+                "max_discount_pct": round((price - cost) / price * 100, 1) if price else 0.0,
+            })
+        return {"shop_id": shop_id, "items": rows}
+
+    @app.get("/merchant/inventory")
+    def merchant_inventory() -> dict[str, Any]:
+        rows = []
+        for item_id, p in db.catalog.items():
+            for r in db.stock_map(item_id):
+                rows.append({"item_id": item_id, "name": p["name"],
+                             "variant": r["variant"], "stock": r["stock"],
+                             "restock_date": r["restock_date"],
+                             "unit_price_paise": p["price_paise"]})
+        return {"shop_id": shop_id, "items": rows}
+
+    @app.get("/merchant/proposals")
+    def merchant_proposals(status: str = "") -> dict[str, Any]:
+        return {"shop_id": shop_id, "proposals": db.proposals(status)}
+
+    @app.post("/merchant/proposals", status_code=201)
+    async def create_merchant_proposal(request: Request) -> dict[str, Any]:
+        body = await json_body(request)
+        for field in ("kind", "payload", "rationale", "numbers"):
+            if field not in body:
+                raise errors.BadRequest(f"missing field '{field}'")
+        prop = db.create_proposal(body["kind"], body["payload"], body["rationale"],
+                                  body["numbers"])
+        chainlog.append(shop_id, "proposal_created",
+                        f"merchant agent proposed {prop['kind']}: {prop['rationale']}",
+                        {"prop_id": prop["prop_id"], "kind": prop["kind"],
+                         "numbers": prop["numbers"]})
+        return prop
+
+    @app.post("/merchant/proposals/{prop_id}/decide")
+    async def decide_merchant_proposal(prop_id: str, request: Request) -> dict[str, Any]:
+        """The governance gate (spec 7.5). Nothing the agent proposes touches
+        live pricing or stock until a human decides here - the same philosophy
+        as the wallet, applied to the merchant side."""
+        body = await json_body(request)
+        decision = str(body.get("decision", "")).lower()
+        if decision not in ("approve", "reject"):
+            raise errors.BadRequest("decision must be 'approve' or 'reject'")
+        prop = db.proposal(prop_id)
+        if prop is None:
+            raise errors.NotFound(f"no such proposal '{prop_id}'", prop_id=prop_id)
+        if prop["status"] != "open":
+            raise errors.IdempotentReplay(
+                f"proposal {prop_id} was already {prop['status']}", prop_id=prop_id)
+
+        reason = str(body.get("reason") or "")
+        applied: dict[str, Any] = {}
+        if decision == "approve":
+            payload = prop["payload"]
+            if prop["kind"] == "restock":
+                db.adjust_stock(payload["item_id"], payload.get("variant", ""),
+                                int(payload["qty"]))
+                applied = {"restocked": int(payload["qty"]),
+                           "item_id": payload["item_id"]}
+            elif prop["kind"] in ("campaign", "coupon"):
+                db.add_runtime_coupon(payload["coupon"], float(payload.get("days", 7)))
+                applied = {"coupon": payload["coupon"]["code"],
+                           "days": payload.get("days", 7)}
+            elif prop["kind"] == "price_alert":
+                applied = {"acknowledged": True}   # nothing to change; it is a warning
+
+        db.decide_proposal(prop_id, "approved" if decision == "approve" else "rejected", reason)
+        chainlog.append(shop_id, f"proposal_{decision}d",
+                        f"merchant {decision}d {prop['kind']} proposal {prop_id}"
+                        + (f": {reason}" if reason else "")
+                        + (f"; applied {applied}" if applied else "; nothing was changed"),
+                        {"prop_id": prop_id, "kind": prop["kind"], "decision": decision,
+                         "reason": reason, "applied": applied})
+        return {**db.proposal(prop_id), "applied": applied}
 
     @app.get("/merchant/reservations")
     def merchant_reservations() -> dict[str, Any]:

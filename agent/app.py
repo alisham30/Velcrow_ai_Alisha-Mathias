@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -25,8 +26,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
-from agent import buyer, llm, runtime
-from common import approval, chainlog, errors, mandate, money, trust, wallet
+from agent import buyer, llm, merchant, runtime
+from common import approval, bandit, chainlog, errors, mandate, money, trust, wallet
 
 # The merchants that have installed the widget. data-shop on the script tag
 # selects one; the widget learns everything else from /agent/config.
@@ -669,6 +670,80 @@ def create_app() -> FastAPI:
         result["aov_delta_display"] = money.rupees(result["aov_delta_paise"])
         return result
 
+    # -- autonomous merchant agent (spec 7.5) -------------------------------
+
+    @app.post("/merchant/agent/run")
+    async def merchant_agent_run(request: Request) -> dict[str, Any]:
+        """"Run now" for the console, and what the scheduler calls hourly.
+
+        Runs in a worker thread: the loop is blocking and a merchant should
+        not be able to stall the shopper-facing service by pressing a button.
+        """
+        body = await json_body(request)
+        shop_key = body.get("shop", "grocery")
+        installed = INSTALLED_SHOPS.get(shop_key)
+        if installed is None:
+            raise errors.BadRequest(f"unknown shop '{shop_key}'")
+        seed = body.get("seed")
+        run = await asyncio.get_running_loop().run_in_executor(
+            None, lambda: merchant.run_once(installed, seed))
+        return run
+
+    @app.get("/merchant/agent/runs")
+    def merchant_agent_runs(shop: str = "", limit: int = 10) -> dict[str, Any]:
+        wanted = INSTALLED_SHOPS.get(shop, {}).get("shop_id") if shop else None
+        runs = [r for r in merchant.RUNS.values()
+                if not wanted or r["shop_id"] == wanted]
+        runs.sort(key=lambda r: r["started_ts"], reverse=True)
+        return {"runs": runs[:limit]}
+
+    @app.post("/merchant/agent/decision")
+    async def merchant_agent_decision(request: Request) -> dict[str, Any]:
+        """Relay the merchant's approve/reject to the shop AND feed the bandit.
+
+        The decision is the only training signal this project has: an approved
+        proposal is a success for that strategy, a rejected one a failure, and
+        the posterior shifts what the agent leads with next time (spec 4.6).
+        """
+        body = await json_body(request)
+        shop_key = body.get("shop", "grocery")
+        installed = INSTALLED_SHOPS.get(shop_key)
+        if installed is None:
+            raise errors.BadRequest(f"unknown shop '{shop_key}'")
+        prop_id, decision = body.get("prop_id"), str(body.get("decision", "")).lower()
+        if not prop_id or decision not in ("approve", "reject"):
+            raise errors.BadRequest("prop_id and decision (approve|reject) are required")
+
+        resp = httpx.post(f"{installed['url']}/merchant/proposals/{prop_id}/decide",
+                          json={"decision": decision, "reason": body.get("reason", "")},
+                          timeout=20)
+        if resp.status_code >= 400:
+            payload = resp.json()
+            raise errors.BadRequest(payload.get("why", "the shop refused the decision"))
+        prop = resp.json()
+
+        learned = bandit.record(installed["shop_id"], prop["kind"], decision == "approve")
+        chainlog.append("buyer", "merchant_decision_learned",
+                        f"{installed['shop_id']} {decision}d a {prop['kind']} proposal; "
+                        f"that strategy is now Beta({learned.get('alpha')}, "
+                        f"{learned.get('beta')}) - approvals {learned.get('approvals')}, "
+                        f"rejections {learned.get('rejections')}",
+                        {"prop_id": prop_id, "kind": prop["kind"], "decision": decision,
+                         "posterior": learned})
+        return {**prop, "learned": learned}
+
+    @app.get("/merchant/agent/strategy")
+    def merchant_agent_strategy(shop: str = "grocery") -> dict[str, Any]:
+        """What the bandit currently believes about each strategy."""
+        installed = INSTALLED_SHOPS.get(shop)
+        if installed is None:
+            raise errors.BadRequest(f"unknown shop '{shop}'")
+        return {"shop_id": installed["shop_id"],
+                "arms": bandit.state(installed["shop_id"]),
+                "note": ("Beta(alpha, beta) per strategy, updated on every approve or reject. "
+                         "Thompson sampling picks the order to try them in, so a strategy this "
+                         "merchant keeps rejecting stops being led with.")}
+
     @app.post("/mandate", status_code=201)
     async def issue_mandate(request: Request) -> dict[str, Any]:
         body = await json_body(request)
@@ -726,5 +801,22 @@ def create_app() -> FastAPI:
         return {"txn_ref": body["txn_ref"], "shop_id": shop_id, "amount_paise": amount,
                 "razorpay_order_id": result["razorpay_order_id"],
                 "payment_ref": result["payment_ref"], "confirmed": confirmed}
+
+    # Hourly per shop (spec 7.5). Off under pytest and wherever
+    # VELCROW_NO_SCHEDULER is set, so importing this module never starts a
+    # background thread that outlives a test.
+    if not os.environ.get("VELCROW_NO_SCHEDULER") and "PYTEST_CURRENT_TEST" not in os.environ:
+        try:
+            from apscheduler.schedulers.background import BackgroundScheduler
+
+            sched = BackgroundScheduler(daemon=True)
+            for installed in INSTALLED_SHOPS.values():
+                sched.add_job(merchant.run_once, "interval", hours=1, args=[installed],
+                              id=f"growth-{installed['shop_id']}", max_instances=1,
+                              coalesce=True)
+            sched.start()
+            app.state.scheduler = sched
+        except Exception:
+            pass   # a missing scheduler must never stop the service starting
 
     return app

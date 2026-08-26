@@ -350,14 +350,19 @@ def _client() -> openai.OpenAI:
     return openai.OpenAI(api_key=key, timeout=30.0, max_retries=1)
 
 
-def plan(messages: list[dict[str, Any]]) -> dict[str, Any]:
+def plan(messages: list[dict[str, Any]],
+         tools: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """One model turn. Returns {content, tool_calls:[{id,name,args}]}.
+
+    `tools` defaults to the shopper agent's set; the merchant growth agent
+    (spec 7.5) passes its own. Still the only module that touches the SDK.
 
     Raises LLMUnavailable on any API failure so the caller can degrade.
     """
     try:
         resp = _client().chat.completions.create(
-            model=MODEL, messages=messages, tools=TOOLS, tool_choice="auto", temperature=0.2
+            model=MODEL, messages=messages, tools=tools if tools is not None else TOOLS,
+            tool_choice="auto", temperature=0.2
         )
     except Exception as exc:  # network, auth, rate limit, bad gateway
         raise LLMUnavailable(f"{type(exc).__name__}: {exc}") from exc

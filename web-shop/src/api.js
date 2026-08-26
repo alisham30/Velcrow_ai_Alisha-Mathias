@@ -63,6 +63,17 @@ export const shop = {
       method: "POST",
       body: { item_id: itemId, variant, qty },
     }),
+  // The autonomous growth agent (spec 7.5). "Run now" and the proposal cards.
+  proposals: (status = "open") =>
+    request(brand.apiBase, `/merchant/proposals?status=${status}`),
+  runGrowthAgent: () =>
+    request(TRUST_BASE, "/merchant/agent/run", { method: "POST", body: { shop: brand.shopKey } }),
+  decideProposal: (propId, decision, reason) =>
+    request(TRUST_BASE, "/merchant/agent/decision", {
+      method: "POST",
+      body: { shop: brand.shopKey, prop_id: propId, decision, reason },
+    }),
+  strategy: () => request(TRUST_BASE, `/merchant/agent/strategy?shop=${brand.shopKey}`),
   setCheatMode: (on) =>
     request(brand.apiBase, "/admin/cheat-mode", { method: "POST", body: { on } }),
   catalog: () => request(brand.apiBase, "/catalog"),

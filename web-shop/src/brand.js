@@ -4,6 +4,7 @@
 // shops read as unrelated businesses.
 const BRANDS = {
   grocery: {
+    shopKey: "grocery",
     shopId: "freshkart",
     name: "FreshKart",
     apiBase: "http://127.0.0.1:8001",
@@ -35,6 +36,7 @@ const BRANDS = {
     unitNoun: "items",
   },
   apparel: {
+    shopKey: "apparel",
     shopId: "loomcraft",
     name: "Loomcraft",
     apiBase: "http://127.0.0.1:8002",
