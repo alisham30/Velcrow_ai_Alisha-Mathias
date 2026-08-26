@@ -11,6 +11,7 @@ htmlcov/
 
 # runtime state: SQLite DBs, chain logs, locks
 data/
+.logs/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
