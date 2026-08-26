@@ -426,20 +426,6 @@ def create_app() -> FastAPI:
             # (spec 7.2). Derived from the reservations this basket satisfies,
             # not asserted by whoever placed the order.
             rescued = db.convert_reservations(order)
-            # A shop that cannot HOLD a unit can still lose a sale and win it
-            # back, and until this ran that recovery was invisible: the ledger
-            # kept reporting money as lost that had already been paid. Settle
-            # the refusal against the basket that answered it.
-            settled = db.convert_demand(order)
-            if settled:
-                recovered_paise = sum(d["value_paise"] for d in settled)
-                db.mark_order_rescued(txn_ref)
-                chainlog.append(shop_id, "demand_recovered",
-                                f"order {txn_ref} answered {len(settled)} refusal(s) this shop "
-                                f"had recorded as lost demand worth {recovered_paise} paise; "
-                                "those ledger rows are now closed, not outstanding",
-                                {"txn_ref": txn_ref, "settled": settled,
-                                 "recovered_paise": recovered_paise})
             if rescued:
                 chainlog.append(shop_id, "sale_rescued",
                                 f"order {txn_ref} closed {len(rescued)} reservation(s) "
@@ -465,8 +451,7 @@ def create_app() -> FastAPI:
                          "razorpay_order_id": body.get("razorpay_order_id"),
                          "payment_ref": body.get("payment_ref"),
                          "cart_id": order["cart_id"], "cart_cleared": True,
-                         "rescued_reservations": rescued,
-                         "recovered_demand": settled}
+                         "rescued_reservations": rescued}
 
         return await idempotent(request, "/confirm-payment", body, handler)
 
@@ -495,14 +480,8 @@ def create_app() -> FastAPI:
                                        shopper_ref=shopper_ref, qty=qty,
                                        contact_key=contact_key)
         value = qty * product["price_paise"]
-        # WHO, not just what. The reservation path wrote an anonymous ledger row
-        # even though a reservation is the one place the shop definitely knows
-        # the shopper, so a refusal that was later bought back could never be
-        # matched to the basket that answered it - and Loomcraft's recovered
-        # sales read as lapsed forever.
         db.record_lost_demand(item_id, variant, qty, product["price_paise"],
-                              "out_of_stock_reserved", res_id,
-                              shopper_ref=shopper_ref, contact_key=contact_key)
+                              "out_of_stock_reserved", res_id)
         chainlog.append(shop_id, "reservation_created",
                         f"reserved '{item_id}' variant '{variant or '-'}' x{qty} for "
                         f"{contact_ref or shopper_ref or 'an unidentified shopper'} "
@@ -731,10 +710,6 @@ def create_app() -> FastAPI:
             offered = bool(delivered and isinstance(detail, dict) and detail.get("offered"))
             if offered:
                 db.set_reservation_status(res["res_id"], "notified")
-                # The ledger row behind this reservation is now 'told' too.
-                # Leaving it unmarked reported a shopper we had just contacted
-                # as one nobody could be reached about.
-                db.mark_demand_notified_for_reservation(res["res_id"])
             notified.append({"res_id": res["res_id"], "contact_ref": res["contact_ref"],
                              "accepted": delivered, "offered": offered, "detail": detail})
             chainlog.append(shop_id, "restock_callback_sent",
@@ -942,72 +917,16 @@ def create_app() -> FastAPI:
         for r in db.demand_rows():
             p = db.product(r["item_id"])
             stock_row = db.stock_row(r["item_id"], r["variant"])
-            in_stock = stock_row[0] if stock_row else 0
-
-            # Split what is still being lost from what has been dealt with.
-            # Reporting them as one number made a restocked, acted-on refusal
-            # look like money currently walking out of the door - and, worse,
-            # counted a sale we had already won back as still lost.
-            #
-            #   recovered    they came back and paid. Real money, and the only
-            #                one of the four that is.
-            #   told         back in stock, shopper told, not bought yet.
-            #   lapsed       back in stock, nobody could be told. Gone.
-            #   outstanding  still cannot be served. The live problem, and the
-            #                only figure anyone should act on.
-            recovered_units = int(r.get("bought_back_units", 0))
-            recovered_value = int(r.get("bought_back_value_paise", 0))
-            told_units = int(r.get("notified_units", 0))
-            told_value = int(r.get("notified_value_paise", 0))
-            open_units = r["lost_units"] - recovered_units - told_units
-            open_value = r["lost_value_paise"] - recovered_value - told_value
-            # A refusal is only LAPSED when the stock came back and there is
-            # nobody left to tell. Loomcraft holds a reservation against every
-            # refusal, so its rows were being written off as lapsed while the
-            # shopper was sitting in the reservations table waiting for exactly
-            # the callback this shop knows how to send.
-            reachable = int(r.get("reachable_units", 0)) > 0
-            servable = in_stock >= open_units and open_units > 0
-            lapsed = servable and not reachable
-
             rows.append({
                 **r,
                 "product_name": p["name"] if p else r["item_id"],
-                "in_stock": in_stock,
+                "in_stock": stock_row[0] if stock_row else 0,
                 "restock_date": stock_row[1] if stock_row else None,
                 "reservations": db.reservations_for(r["item_id"], r["variant"]),
-                "recovered_units": recovered_units,
-                "recovered_value_paise": recovered_value,
-                "told_units": told_units,
-                "told_value_paise": told_value,
-                "lapsed_units": open_units if lapsed else 0,
-                "lapsed_value_paise": open_value if lapsed else 0,
-                "outstanding_units": 0 if lapsed else open_units,
-                "outstanding_value_paise": 0 if lapsed else open_value,
-                "state": ("outstanding" if open_units and not lapsed
-                          else "lapsed" if lapsed
-                          else "told" if told_units
-                          else "recovered"),
-                # What would actually fix this row. Outstanding demand with
-                # stock already on the shelf needs a message, not the
-                # merchant's cash, and the two were indistinguishable before.
-                "action": ("none" if not open_units or lapsed
-                           else "notify" if in_stock >= open_units
-                           else "restock"),
             })
-
         return {"shop_id": shop_id, "currency": "INR",
                 "total_lost_value_paise": sum(r["lost_value_paise"] for r in rows),
-                "outstanding_value_paise": sum(r["outstanding_value_paise"] for r in rows),
-                "recovered_value_paise": sum(r["recovered_value_paise"] for r in rows),
-                "told_value_paise": sum(r["told_value_paise"] for r in rows),
-                "lapsed_value_paise": sum(r["lapsed_value_paise"] for r in rows),
-                "rows": rows,
-                "note": ("outstanding is what is still being lost and the only figure worth "
-                         "acting on; recovered was refused and later bought - money back in the "
-                         "till; told was restocked and the shopper informed but not yet bought; "
-                         "lapsed was restocked with nobody to tell. Each outstanding row says "
-                         "whether it needs a restock or only a message.")}
+                "rows": rows}
 
     # -- agent-readable surface (spec 6.6) ----------------------------------
 

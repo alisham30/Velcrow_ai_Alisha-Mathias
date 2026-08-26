@@ -72,33 +72,16 @@ def get_sales_metrics(ctx: dict[str, Any], period_days: float = 7.0, **_: Any) -
 
 
 def get_demand_ledger(ctx: dict[str, Any], **_: Any) -> dict[str, Any]:
-    """Refused demand, with what is STILL being lost separated from what has
-    already been dealt with. Reasoning from the historical total made the agent
-    propose restocking things that had been restocked days ago."""
     d = _get(ctx["shop_url"], "/merchant/demand-ledger")
     return {
-        "outstanding_display": money.rupees(d["outstanding_value_paise"]),
-        "recovered_display": money.rupees(d["recovered_value_paise"]),
-        "told_display": money.rupees(d.get("told_value_paise", 0)),
-        "lapsed_display": money.rupees(d["lapsed_value_paise"]),
+        "total_lost_display": money.rupees(d["total_lost_value_paise"]),
         "rows": [
-            {"item_id": r["item_id"], "variant": r["variant"],
-             "outstanding_units": r["outstanding_units"],
-             "outstanding_display": money.rupees(r["outstanding_value_paise"]),
-             "state": r["state"], "action": r.get("action", "restock"),
-             "in_stock": r["in_stock"],
-             "restock_date": r["restock_date"],
+            {"item_id": r["item_id"], "variant": r["variant"], "lost_units": r["lost_units"],
+             "lost_value_display": money.rupees(r["lost_value_paise"]),
+             "in_stock": r["in_stock"], "restock_date": r["restock_date"],
              "waiting": len(r.get("reservations", []))}
             for r in d["rows"]
         ],
-        "note": ("Act on OUTSTANDING only. Recovered means the shopper came back and paid - "
-                 "that money is already in the till. Told means restocked and the shopper "
-                 "informed, waiting on them. Lapsed means restocked with nobody to tell. None "
-                 "of those three is money you are still losing, and proposing a restock for "
-                 "them wastes the merchant's cash. Check each row's action: 'restock' needs "
-                 "stock bought, 'notify' means the stock is already on the shelf and the "
-                 "shopper simply has not been told - proposing to buy more there is money "
-                 "spent on a problem that does not exist."),
     }
 
 
@@ -188,53 +171,25 @@ def simulate_restock(ctx: dict[str, Any], item_id: str, qty: int, variant: str =
         return {"error": f"no such item '{item_id}'"}
     rows = [r for r in ledger["rows"] if r["item_id"] == item_id
             and (not variant or r["variant"] == variant)]
-    # Only demand still going unserved. Counting refusals already restocked and
-    # acted on would recommend buying stock the merchant already bought.
-    lost_units = sum(r["outstanding_units"] for r in rows)
+    lost_units = sum(r["lost_units"] for r in rows)
     waiting = sum(len(r.get("reservations", [])) for r in rows)
-    # Stock the merchant has ALREADY bought serves this demand first. Without
-    # this the simulation told the agent to buy three more sarees while four
-    # sat on the shelf; the shopper had been refused before the shelf was
-    # refilled and nobody had gone back to tell them. That is a message, not
-    # an inventory order, and the two cost very different amounts of money.
-    on_hand = sum(r["in_stock"] for r in rows)
-    served_by_shelf = min(on_hand, lost_units)
-    still_short = lost_units - served_by_shelf
 
     qty = int(qty)
-    recoverable = min(qty, still_short)
+    recoverable = min(qty, lost_units)
     revenue = recoverable * m["price_paise"]
     margin = recoverable * (m["price_paise"] - m["cost_paise"])
-    shelf_revenue = served_by_shelf * m["price_paise"]
     return {
         "item_id": item_id, "name": m["name"], "variant": variant, "qty": qty,
         "demand_refused": lost_units, "shoppers_waiting": waiting,
-        "already_on_shelf": on_hand,
-        "recoverable_by_telling_them": served_by_shelf,
-        "recoverable_by_telling_them_display": money.rupees(shelf_revenue),
         "recoverable_units": recoverable,
         "revenue_display": money.rupees(revenue),
         "margin_display": money.rupees(margin),
         "worth_doing": recoverable > 0,
-        "verdict": (
-            f"{recoverable} of the {qty} would go to demand already refused, "
-            f"worth {money.rupees(revenue)}"
-            if recoverable else
-            f"buy nothing: {served_by_shelf} unit(s) of that refused demand, worth "
-            f"{money.rupees(shelf_revenue)}, are ALREADY on the shelf and the shopper has "
-            "simply not been told. Restocking spends cash on a problem that does not "
-            "exist; the fix is a restock notification"
-            if served_by_shelf else
-            "nothing was refused for this item, so a restock recovers no lost sale"),
+        "verdict": (f"{recoverable} of the {qty} would go to demand already refused, "
+                    f"worth {money.rupees(revenue)}"
+                    if recoverable else
+                    "nothing was refused for this item, so a restock recovers no lost sale"),
     }
-
-
-# Which arms are only allowed to reach a merchant on the back of a simulation,
-# and which tool has to have run. "Only propose ideas a simulation supported"
-# was in the prompt and the model wrote a restock card before testing anything,
-# then wrote a second one for the same item after being sent back. A rule that
-# guards the merchant's cash belongs in code.
-NEEDS_SIMULATION = {"restock": "simulate_restock", "campaign": "simulate_discount"}
 
 
 def create_proposal(ctx: dict[str, Any], kind: str, payload: dict[str, Any],
@@ -243,23 +198,6 @@ def create_proposal(ctx: dict[str, Any], kind: str, payload: dict[str, Any],
     """Write a card for the merchant. This CHANGES NOTHING - approval does."""
     if kind not in bandit.ARMS:
         return {"error": f"kind must be one of {list(bandit.ARMS)}"}
-
-    item_id = str(payload.get("item_id") or "")
-    needed = NEEDS_SIMULATION.get(kind)
-    if needed:
-        sim = ctx.get("simulated", {}).get((needed, item_id))
-        if sim is None:
-            return {"error": (f"run {needed} on '{item_id}' first - a {kind} proposal has to "
-                              "carry a number the merchant can check, and nothing has tested "
-                              "this one")}
-        if not sim.get("worth_doing"):
-            return {"error": (f"{needed} on '{item_id}' did not support this: "
-                              f"{sim.get('verdict')}. Say that instead of proposing it.")}
-
-    seen = {(p["kind"], str(p.get("payload", {}).get("item_id") or ""))
-            for p in ctx["proposed"]}
-    if (kind, item_id) in seen:
-        return {"error": f"you already proposed a {kind} for '{item_id}' in this run"}
     with httpx.Client(base_url=ctx["shop_url"], timeout=20) as c:
         resp = c.post("/merchant/proposals",
                       json={"kind": kind, "payload": payload, "rationale": rationale,
@@ -289,8 +227,7 @@ def summarise(name: str, result: dict[str, Any]) -> str:
     if name == "get_sales_metrics":
         return f"{result['orders']} orders, {result['revenue_display']} over {result['period_days']}d"
     if name == "get_demand_ledger":
-        return (f"{len(result['rows'])} refused line(s), "
-                f"{result['outstanding_display']} still outstanding")
+        return f"{len(result['rows'])} refused line(s), {result['total_lost_display']} lost"
     if name == "get_inventory":
         return f"{len(result['items'])} stock rows"
     if name == "get_margins":
@@ -331,7 +268,7 @@ HOW TO WORK
   it breaches the margin floor or does not pay for itself, DISCARD it and say
   so - a discarded idea is a good outcome, not a failure.
 - SHOW YOUR WORKING BEFORE CONCLUDING NOTHING. If the demand ledger shows any
-  OUTSTANDING value, simulate a restock on the worst line before deciding against it.
+  lost value, simulate a restock on the worst line before deciding against it.
   If any item has margin headroom and is barely moving, simulate a discount on
   it before deciding against that. "I propose nothing" is a finding when a
   simulation supports it and merely an opinion when it does not, and your
@@ -359,27 +296,6 @@ found, what you propose, and the number that justifies it, in two sentences.
 
 When you are finished, reply with a short plain summary of what you looked at
 and what you decided - including deciding to do nothing."""
-
-
-def _unsimulated_outstanding(ctx: dict[str, Any], run: dict[str, Any]) -> dict[str, Any] | None:
-    """The worst outstanding line the agent never tested, if there is one.
-
-    Only counts a line as tested when a simulation actually ran against that
-    item, so reading the ledger and talking about it does not discharge the
-    obligation.
-    """
-    simulated = {e["args"].get("item_id") for e in run["events"]
-                 if e.get("kind") == "tool" and e.get("ok")
-                 and e.get("tool") in ("simulate_restock", "simulate_discount")}
-    try:
-        ledger = get_demand_ledger(ctx)
-    except Exception:
-        return None     # the shop being unreachable is not the agent's failing
-    open_rows = [r for r in ledger["rows"]
-                 if r["outstanding_units"] > 0 and r["item_id"] not in simulated]
-    if not open_rows:
-        return None
-    return max(open_rows, key=lambda r: r["outstanding_units"])
 
 
 def _emit(run: dict[str, Any], kind: str, **data: Any) -> None:
@@ -410,7 +326,6 @@ def run_once(shop: dict[str, Any], seed: int | None = None) -> dict[str, Any]:
         {"role": "user", "content": "Scheduled run. Look at the numbers and decide."},
     ]
 
-    sent_back = False
     for round_no in range(MAX_ROUNDS):
         try:
             step = llm.plan(messages, tools=MERCHANT_TOOLS)
@@ -425,27 +340,6 @@ def run_once(shop: dict[str, Any], seed: int | None = None) -> dict[str, Any]:
             break
 
         if not step["tool_calls"]:
-            # "Simulate the worst outstanding line before concluding nothing" was
-            # in the prompt and the model skipped it anyway - it read a ledger
-            # showing money being refused, wrote a paragraph about the clear
-            # opportunity, and proposed nothing. Asking more firmly is not a
-            # fix. The obligation is checked here instead, and an unsupported
-            # "I propose nothing" is sent back once with the row it ignored.
-            owed = _unsimulated_outstanding(ctx, run)
-            if owed and not sent_back:
-                sent_back = True
-                _emit(run, "sent_back", why=(
-                    f"concluded without simulating {owed['item_id']}, which the ledger "
-                    f"still shows as {owed['outstanding_display']} outstanding"))
-                messages.append({"role": "assistant", "content": step["content"] or None})
-                messages.append({"role": "user", "content": (
-                    f"You have not finished. The demand ledger still shows "
-                    f"{owed['outstanding_display']} outstanding on '{owed['item_id']}'"
-                    f"{' variant ' + owed['variant'] if owed['variant'] else ''}, and the "
-                    f"row says it needs a {owed['action']}. Run the matching simulation on "
-                    "it, then either propose or say what the simulation showed. Do not "
-                    "conclude again without that number.")})
-                continue
             run["summary"] = step["content"] or "No summary given."
             break
 
@@ -469,11 +363,6 @@ def run_once(shop: dict[str, Any], seed: int | None = None) -> dict[str, Any]:
                     raise ValueError("three proposals is the limit for one run")
                 result = fn(ctx, **args)
                 ok = not result.get("error")
-                # Remember what was actually tested, so create_proposal can
-                # check rather than trust. Keyed by (tool, item) because a
-                # simulation of one item says nothing about another.
-                if ok and name in ("simulate_restock", "simulate_discount"):
-                    ctx.setdefault("simulated", {})[(name, str(args.get("item_id") or ""))] = result
             except Exception as exc:
                 result, ok = {"error": str(exc)}, False
             latency = int((time.perf_counter() - started) * 1000)

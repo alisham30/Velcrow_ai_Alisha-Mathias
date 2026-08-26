@@ -122,17 +122,11 @@ def test_a_proposal_changes_nothing_until_a_human_decides(loom, monkeypatch):
     before = next(v["stock"] for p in loom["client"].get("/catalog").json()
                   if p["id"] == item_id for v in p["variants"] if v["label"] == variant)
 
-    # The refusal has to be real, and the simulation has to have run: a restock
-    # proposal no longer reaches the merchant without one.
-    _refuse_demand(loom["client"], item_id, variant, 3)
     monkeypatch.setattr(llm, "plan", _scripted(
-        {"content": "", "tool_calls": [{"id": "s", "name": "simulate_restock",
-                                        "args": {"item_id": item_id, "variant": variant,
-                                                 "qty": 3, "reason": "is it worth it"}}]},
         {"content": "", "tool_calls": [{"id": "a", "name": "create_proposal",
                                         "args": {"kind": "restock",
                                                  "payload": {"item_id": item_id,
-                                                             "variant": variant, "qty": 3},
+                                                             "variant": variant, "qty": 25},
                                                  "rationale": "recovers refused demand",
                                                  "reason": "worth restocking"}}]},
         {"content": "Proposed.", "tool_calls": []},
@@ -187,17 +181,11 @@ def test_a_discount_simulation_states_its_assumption(loom):
 
 
 def test_at_most_three_proposals_come_out_of_one_run(loom, monkeypatch):
-    # price_alert changes no money, so it needs no simulation - which keeps this
-    # test about the cap rather than about the simulation gate. Five different
-    # items, because proposing the same one twice is refused separately.
-    items = ["kurti-indigo-cotton", "shirt-oxford-white", "tshirt-graphic-black",
-             "hoodie-fleece-grey", "jeans-slim-indigo"]
+    call = {"id": "x", "name": "create_proposal",
+            "args": {"kind": "restock", "payload": {"item_id": "kurti-indigo-cotton", "qty": 1},
+                     "rationale": "r", "reason": "why"}}
     monkeypatch.setattr(llm, "plan", _scripted(
-        {"content": "", "tool_calls": [
-            {"id": f"c{i}", "name": "create_proposal",
-             "args": {"kind": "price_alert", "payload": {"item_id": item, "note": "up"},
-                      "rationale": "r", "reason": "why"}}
-            for i, item in enumerate(items)]},
+        {"content": "", "tool_calls": [dict(call, id=f"c{i}") for i in range(5)]},
         {"content": "Done.", "tool_calls": []},
     ))
     run = merchant.run_once(loom)
@@ -343,114 +331,3 @@ def test_ranking_is_deterministic_for_a_given_seed():
 def test_an_unknown_arm_is_ignored_rather_than_stored():
     assert bandit.record("shopD", "not_a_strategy", accepted=True) == {}
     assert set(bandit.state("shopD")) == set(bandit.ARMS)
-
-
-# -- Phase 9: what the agent may say, checked in code -------------------------
-
-def test_a_restock_proposal_without_a_simulation_is_refused(loom, monkeypatch):
-    """The prompt asked for this and the model ignored it - it wrote a restock
-    card before testing anything, then a second one for the same item after
-    being sent back. The merchant's cash is not protected by a paragraph."""
-    monkeypatch.setattr(llm, "plan", _scripted(
-        {"content": "", "tool_calls": [{"id": "a", "name": "create_proposal",
-                                        "args": {"kind": "restock",
-                                                 "payload": {"item_id": "kurti-indigo-cotton",
-                                                             "qty": 5},
-                                                 "rationale": "feels right",
-                                                 "reason": "hunch"}}]},
-        {"content": "Fine, nothing then.", "tool_calls": []},
-    ))
-    run = merchant.run_once(loom)
-    assert run["outcome"] == "no_action"
-    assert not run["proposals"]
-    refused = [e for e in run["events"] if e["kind"] == "tool" and not e["ok"]]
-    assert refused and "simulate_restock" in refused[0]["result_display"]
-
-
-def test_a_simulation_that_says_no_cannot_be_proposed_anyway(loom, monkeypatch):
-    """Nothing was refused for this item, so the simulation says a restock
-    recovers nothing. Proposing it regardless has to fail."""
-    monkeypatch.setattr(llm, "plan", _scripted(
-        {"content": "", "tool_calls": [{"id": "s", "name": "simulate_restock",
-                                        "args": {"item_id": "socks-crew-3pack", "qty": 10,
-                                                 "reason": "checking"}}]},
-        {"content": "", "tool_calls": [{"id": "a", "name": "create_proposal",
-                                        "args": {"kind": "restock",
-                                                 "payload": {"item_id": "socks-crew-3pack",
-                                                             "qty": 10},
-                                                 "rationale": "more socks",
-                                                 "reason": "why not"}}]},
-        {"content": "Nothing then.", "tool_calls": []},
-    ))
-    run = merchant.run_once(loom)
-    assert not run["proposals"]
-    refused = [e for e in run["events"] if e["kind"] == "tool" and not e["ok"]]
-    assert refused and "did not support this" in refused[0]["result_display"]
-
-
-def test_the_same_proposal_cannot_be_written_twice_in_one_run(loom, monkeypatch):
-    monkeypatch.setattr(llm, "plan", _scripted(
-        {"content": "", "tool_calls": [
-            {"id": f"c{i}", "name": "create_proposal",
-             "args": {"kind": "price_alert", "payload": {"item_id": "socks-crew-3pack",
-                                                         "note": "up"},
-                      "rationale": "r", "reason": "why"}} for i in range(2)]},
-        {"content": "Done.", "tool_calls": []},
-    ))
-    run = merchant.run_once(loom)
-    assert len(run["proposals"]) == 1
-    refused = [e for e in run["events"] if e["kind"] == "tool" and not e["ok"]]
-    assert refused and "already proposed" in refused[0]["result_display"]
-
-
-def test_concluding_nothing_with_demand_untested_is_sent_back(loom, monkeypatch):
-    """'Show your working before concluding nothing' was in the prompt and the
-    model skipped it, reading a ledger full of refused money and then writing a
-    paragraph about the clear opportunity it was not going to act on."""
-    _refuse_demand(loom["client"], "kurti-indigo-cotton", "S", 4)
-    monkeypatch.setattr(llm, "plan", _scripted(
-        {"content": "", "tool_calls": [{"id": "d", "name": "get_demand_ledger",
-                                        "args": {"reason": "looking"}}]},
-        {"content": "Nothing to do here.", "tool_calls": []},
-        {"content": "", "tool_calls": [{"id": "s", "name": "simulate_restock",
-                                        "args": {"item_id": "kurti-indigo-cotton",
-                                                 "variant": "S", "qty": 4,
-                                                 "reason": "sent back, testing it"}}]},
-        {"content": "Tested it - here is what it showed.", "tool_calls": []},
-    ))
-    run = merchant.run_once(loom)
-    sent_back = [e for e in run["events"] if e["kind"] == "sent_back"]
-    assert sent_back, "the agent was allowed to conclude without testing anything"
-    assert "kurti-indigo-cotton" in sent_back[0]["why"]
-    assert any(e.get("tool") == "simulate_restock" for e in run["events"])
-
-
-def test_the_agent_is_only_sent_back_once(loom, monkeypatch):
-    """A model that will not simulate must not be looped forever - one push,
-    then its answer stands and the trace shows it was pushed."""
-    _refuse_demand(loom["client"], "kurti-indigo-cotton", "S", 4)
-    monkeypatch.setattr(llm, "plan", _scripted(
-        {"content": "Nothing to do.", "tool_calls": []},
-        {"content": "Still nothing.", "tool_calls": []},
-        {"content": "Still nothing.", "tool_calls": []},
-    ))
-    run = merchant.run_once(loom)
-    assert len([e for e in run["events"] if e["kind"] == "sent_back"]) == 1
-    assert run["outcome"] == "no_action"
-    assert run["summary"] == "Still nothing."
-
-
-def test_a_restock_is_not_proposed_for_stock_already_on_the_shelf(loom):
-    """The simulation used to ignore inventory, so it told the agent to buy
-    three more sarees while four sat in the stockroom. The shopper had been
-    refused before the shelf was refilled; what is missing is a message."""
-    on_hand = next(p["stock"] for p in loom["client"].get("/catalog").json()
-                   if p["id"] == "socks-crew-3pack")
-    _refuse_demand(loom["client"], "socks-crew-3pack", "", on_hand + 3)   # short by 3
-    loom["client"].post("/admin/restock",
-                        json={"item_id": "socks-crew-3pack", "variant": "", "qty": 3})
-    ctx = {"shop_url": "http://testshop", "shop_id": "loomcraft"}
-    sim = merchant.simulate_restock(ctx, item_id="socks-crew-3pack", qty=3)
-    assert sim["worth_doing"] is False
-    assert sim["recoverable_by_telling_them"] > 0
-    assert "ALREADY on the shelf" in sim["verdict"]

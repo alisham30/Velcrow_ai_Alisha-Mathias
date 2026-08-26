@@ -364,42 +364,6 @@ Instead: FreshKart and Loomcraft get **distinct** identities — different palet
 | 9 | Deploy, polish per §11, two clean full dry runs, README + architecture diagram | Entire §15 demo path runs twice with zero terminal use |
 | 10 | Record the 5-minute video, write the final README, submit. *(WhatsApp only if everything above is done and dry-run clean)* | Submitted |
 
-**Phase 9 as built (2026-08-27).** Acceptance met on all three counts, and the
-work was larger than the estimate because the ledger turned out never to settle
-at all rather than settling late. What shipped:
-
-- `demand_ledger` gained `converted_ts`/`converted_txn` and `db.convert_demand()`,
-  called from `/confirm-payment`, matching a paid basket to the refusal it
-  answers by item, variant and shopper — and settling only as many units as the
-  basket actually supplies.
-- A rescued sale is no longer derived from reservations alone, so FreshKart —
-  which cannot hold a unit, only tell you — finally gets credit for the sales
-  it wins back.
-- Four states, not three: **recovered** (bought back, the only one that is
-  money), **told**, **lapsed**, **outstanding**; plus a per-row `action` of
-  restock or notify, because outstanding demand with stock already on the shelf
-  needs a message, not the merchant's cash.
-- `lab/seed_demo.py` drives both paths through the real endpoints — nothing is
-  written directly — and reports any basket it could not buy instead of dropping
-  it.
-- The Revenue Lab reports the two differentiators that are actually the agent's
-  (bigger ordinary baskets, rescued stock-outs) as disjoint terms, and names
-  coupon claim rate and repeat orders as things the SHOP does either way.
-- The growth agent's guardrails moved from prose into code after the model
-  walked through all of them: a one-time send-back when it concludes without
-  simulating the worst outstanding line, a refusal to propose any restock or
-  campaign a simulation did not support, and no duplicate proposals in a run.
-
-Measured on a clean seed: **+₹7,516.30**, being ₹318.30 from bigger ordinary
-baskets and ₹7,198.00 rescued. Both figures come from paid orders in the shops'
-own databases.
-
-**Known gap, deliberately left for phase 12:** when the ledger says a row needs
-a *notify* rather than a restock, the growth agent correctly declines to spend
-the merchant's cash and then has no proposal kind to offer instead. Adding a
-notify arm changes `bandit.ARMS` and the persisted posteriors, which is not
-phase 9's business.
-
 **Cut order (top first):** WhatsApp → Thompson bandit → cross-shop ranking in the consumer agent (single-shop only) → tamper demo button.
 **Never cut:** wallet + two-tier mandates + cart-bound approval + §7.9 injection demo · chain logs · coupon optimizer · stock-out reserve + comeback · conversational cart + checkout · per-shop consoles · two distinct storefronts · the manifest + `third_party_buyer.py` · **the Revenue Lab** (the measured number is the pitch) · the autonomous merchant agent §7.5 (it is the proof of autonomy) · the reasoning trace §6.5 (it is the proof it is not a script).
 
@@ -479,7 +443,7 @@ Everything else is upside.
 
 | # | Phase | Fixes / amplifies | Acceptance test | Est |
 |---|---|---|---|---|
-| **9 — DONE 2026-08-27** | **Truth in the numbers.** Settle the demand ledger when stock returns and the wanting party is told. `reset_demo.ps1`, then a scripted paired seed: N baskets bought plainly, N through the agent claiming a coupon, taking a near-miss and rescuing a stock-out. | Fixes the missing revenue number and a ledger that never settles and so misleads both the console and the growth agent | Revenue Lab shows a **positive measured lift** computed only from real paid orders; the console's Lost demand table shows only demand still outstanding; the growth agent's read of "lost demand" matches what is actually still lost | 0.5d |
+| **9** | **Truth in the numbers.** Settle the demand ledger when stock returns and the wanting party is told. `reset_demo.ps1`, then a scripted paired seed: N baskets bought plainly, N through the agent claiming a coupon, taking a near-miss and rescuing a stock-out. | Fixes the missing revenue number and a ledger that never settles and so misleads both the console and the growth agent | Revenue Lab shows a **positive measured lift** computed only from real paid orders; the console's Lost demand table shows only demand still outstanding; the growth agent's read of "lost demand" matches what is actually still lost | 0.5d |
 | **10** | **ACP adapter** (was 8d). Read the live published ACP spec and its OpenAPI first — take no endpoint shape or version string from this document or from memory. Checkout-session surface over the existing cart/order/confirm. Manifest declares it alongside the native block. | Closes the "why now" hole the brief names explicitly | The SAME unmodified `third_party_buyer.py` completes a purchase at **both** shops through the ACP surface, having negotiated capabilities first, and recovers from `OUT_OF_STOCK` by reserving | 1d |
 | **11** | **Agent-to-agent negotiation.** The buyer presents a mandate and a ceiling; the shop's growth agent answers with `simulate_discount` bounded by the margin floor — accept, counter, or refuse with a reason. Counter-offers are signed and time-boxed. Both sides log to their own chain. | **The standout.** The brief calls agent-to-agent commerce "the open problem of the year"; this is two autonomous parties with opposed interests, bounded by policy in code | A buyer whose ceiling is under list price receives a bounded counter-offer it can rank; a ceiling below the margin floor is **refused with the reason**, never quietly accepted; the dispute view shows both sides' record of the same negotiation | 1d |
 | **12** | **Cross-sell from real baskets.** Co-purchase computed from paid `line_items` across both shops' own orders, with a support count. Surfaced by the widget at the moment it helps, never as a banner. | Fixes the weakest of the four named directions | Every suggestion states how many past baskets it rests on; nothing is suggested below a stated support floor; suggestions are absent on a shop with too little history rather than invented | 0.5d |

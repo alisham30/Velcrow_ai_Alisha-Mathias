@@ -21,8 +21,6 @@ import uuid
 from typing import Any
 
 import httpx
-
-from lab import console
 from dotenv import load_dotenv
 
 from common import approval, chainlog, errors, mandate, wallet
@@ -43,7 +41,6 @@ def _die_with_chains(shop_id: str, exc: errors.VelcrowError) -> None:
 
 
 def main() -> None:
-    console()   # rupee signs survive a cp1252 terminal
     load_dotenv()
     ap = argparse.ArgumentParser(description="Buyer-side purchase harness (all money integer paise)")
     ap.add_argument("shop_url", help="e.g. http://localhost:8001")
