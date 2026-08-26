@@ -107,6 +107,24 @@ class ShopDB:
                       " ON orders (contact_key, status, created_ts)")
             c.execute("CREATE INDEX IF NOT EXISTS idx_links_ref"
                       " ON shopper_links (shopper_ref)")
+            # The autonomous merchant agent (spec 7.5). A proposal is a card in
+            # the console, never an applied change: approval is what applies it,
+            # rejection feeds the bandit, and both are chain-logged.
+            c.execute(
+                "CREATE TABLE IF NOT EXISTS proposals ("
+                "  prop_id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload TEXT NOT NULL,"
+                "  rationale TEXT NOT NULL, numbers TEXT NOT NULL,"
+                "  status TEXT NOT NULL DEFAULT 'open',"
+                "  decided_reason TEXT NOT NULL DEFAULT '',"
+                "  created_ts REAL NOT NULL, decided_ts REAL)"
+            )
+            # Coupons an approved campaign creates at runtime, merged with the
+            # config set until they lapse.
+            c.execute(
+                "CREATE TABLE IF NOT EXISTS runtime_coupons ("
+                "  code TEXT PRIMARY KEY, coupon TEXT NOT NULL,"
+                "  expires_ts REAL NOT NULL, created_ts REAL NOT NULL)"
+            )
 
     def _conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.path, timeout=10)
@@ -354,13 +372,19 @@ class ShopDB:
         if not refs and not contact_key:
             return None
 
+        # An order already claimed by a DIFFERENT contact is never mine, even
+        # when it was placed on this browser. Without that guard, signing in
+        # with your own email on a device someone else used hands you their
+        # order history - the browser ref is shared, the person is not.
         clauses: list[str] = []
         params: list[Any] = []
         if contact_key:
             clauses.append("contact_key = ?")
             params.append(contact_key)
         if refs:
-            clauses.append(f"shopper_ref IN ({','.join('?' * len(refs))})")
+            placeholders = ",".join("?" * len(refs))
+            clauses.append(
+                f"(shopper_ref IN ({placeholders}) AND contact_key = '')")
             params.extend(sorted(refs))
 
         with self._conn() as c:
@@ -491,3 +515,77 @@ class ShopDB:
                 " VALUES (?, ?, ?, ?, ?)",
                 (key, endpoint, request_hash, status, body),
             )
+
+    # -- autonomous merchant agent (spec 7.5) --------------------------------
+    def sales_metrics(self, days: float = 7.0) -> dict[str, Any]:
+        """Real sales over the window: per-item units and revenue from PAID
+        orders only. This is what the merchant agent reasons from - no views,
+        no sessions, nothing we do not actually record."""
+        since = time.time() - days * 86400
+        per_item: dict[str, dict[str, int]] = {}
+        orders = revenue = 0
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT charge_amount, line_items FROM orders"
+                " WHERE status = 'paid' AND created_ts >= ?", (since,)).fetchall()
+        for r in rows:
+            orders += 1
+            revenue += int(r["charge_amount"])
+            for li in json.loads(r["line_items"]):
+                slot = per_item.setdefault(li["item_id"], {"units": 0, "revenue_paise": 0})
+                slot["units"] += int(li["qty"])
+                slot["revenue_paise"] += int(li["qty"]) * int(li["unit_price_paise"])
+        return {"days": days, "orders": orders, "revenue_paise": revenue,
+                "aov_paise": revenue // orders if orders else 0, "per_item": per_item}
+
+    def create_proposal(self, kind: str, payload: dict[str, Any], rationale: str,
+                        numbers: dict[str, Any]) -> dict[str, Any]:
+        prop_id = "prop_" + uuid.uuid4().hex[:10]
+        with self._conn() as c:
+            c.execute(
+                "INSERT INTO proposals (prop_id, kind, payload, rationale, numbers, created_ts)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (prop_id, kind, json.dumps(payload), rationale, json.dumps(numbers), time.time()),
+            )
+        return self.proposal(prop_id)  # type: ignore[return-value]
+
+    def proposal(self, prop_id: str) -> dict[str, Any] | None:
+        with self._conn() as c:
+            row = c.execute("SELECT * FROM proposals WHERE prop_id = ?", (prop_id,)).fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        d["payload"] = json.loads(d["payload"])
+        d["numbers"] = json.loads(d["numbers"])
+        return d
+
+    def proposals(self, status: str = "") -> list[dict[str, Any]]:
+        with self._conn() as c:
+            if status:
+                rows = c.execute("SELECT prop_id FROM proposals WHERE status = ?"
+                                 " ORDER BY created_ts DESC", (status,)).fetchall()
+            else:
+                rows = c.execute("SELECT prop_id FROM proposals"
+                                 " ORDER BY created_ts DESC").fetchall()
+        return [self.proposal(r["prop_id"]) for r in rows]  # type: ignore[misc]
+
+    def decide_proposal(self, prop_id: str, status: str, reason: str) -> None:
+        with self._conn() as c:
+            c.execute("UPDATE proposals SET status = ?, decided_reason = ?, decided_ts = ?"
+                      " WHERE prop_id = ? AND status = 'open'",
+                      (status, reason, time.time(), prop_id))
+
+    def add_runtime_coupon(self, coupon: dict[str, Any], days: float) -> None:
+        with self._conn() as c:
+            c.execute("INSERT OR REPLACE INTO runtime_coupons (code, coupon, expires_ts,"
+                      " created_ts) VALUES (?, ?, ?, ?)",
+                      (coupon["code"], json.dumps(coupon), time.time() + days * 86400,
+                       time.time()))
+
+    def runtime_coupons(self) -> list[dict[str, Any]]:
+        """Live campaign coupons; expiry enforced on read, so a lapsed campaign
+        simply stops applying."""
+        with self._conn() as c:
+            rows = c.execute("SELECT coupon FROM runtime_coupons WHERE expires_ts > ?",
+                             (time.time(),)).fetchall()
+        return [json.loads(r["coupon"]) for r in rows]

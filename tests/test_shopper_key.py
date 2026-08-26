@@ -230,3 +230,40 @@ def test_the_conversation_thread_does_not_survive_a_restart_and_that_is_fine(env
     past = client.get("/orders/last",
                       params={"contact_key": contact.normalise("9821158848")}).json()
     assert past["lines"][0]["item_id"] == "lemons-1kg"  # the history is not
+
+
+def test_one_contact_never_inherits_anothers_orders_on_a_shared_browser(env, monkeypatch):
+    """The reported glitch: sign in with your own email on a browser someone
+    else used, and their past order came back as "your previous order". The
+    browser ref is shared; the person is not."""
+    shop = _fresh_shop(monkeypatch)
+    _buy(shop, [("lemons-1kg", 2)], shopper_ref="shp_shared", contact_text="zoya@example.com")
+
+    # a different person, same device, their own contact
+    shop.post("/shopper/identify",
+              json={"contact": "alisha@example.com", "shopper_ref": "shp_shared"}
+              ).raise_for_status()
+
+    theirs = shop.get("/orders/last",
+                      params={"contact_key": contact.normalise("alisha@example.com"),
+                              "shopper_ref": "shp_shared"})
+    assert theirs.status_code == 404, "signed in as someone else and saw their orders"
+
+    # and the original owner still finds their own
+    mine = shop.get("/orders/last",
+                    params={"contact_key": contact.normalise("zoya@example.com")}).json()
+    assert mine["lines"][0]["item_id"] == "lemons-1kg"
+
+
+def test_an_anonymous_order_is_still_claimable_by_the_first_contact(env, monkeypatch):
+    """The guard must not break retroactive claiming: an order placed before
+    anyone signed in still belongs to whoever identifies on that browser."""
+    shop = _fresh_shop(monkeypatch)
+    _buy(shop, [("honey-500g", 1)], shopper_ref="shp_solo")     # no contact given
+
+    result = shop.post("/shopper/identify",
+                       json={"contact": "9821158848", "shopper_ref": "shp_solo"}).json()
+    assert result["orders_claimed"] == 1
+    past = shop.get("/orders/last",
+                    params={"contact_key": contact.normalise("9821158848")}).json()
+    assert past["lines"][0]["item_id"] == "honey-500g"
