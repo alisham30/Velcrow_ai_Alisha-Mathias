@@ -19,6 +19,7 @@ const TABS = [
   ["chains", "Chains"],
   ["trace", "Trace"],
   ["dispute", "Dispute"],
+  ["deals", "Negotiations"],
   ["lab", "Revenue Lab"],
   ["trust", "Trust"],
 ];
@@ -306,6 +307,92 @@ function Dispute() {
   );
 }
 
+function Deals() {
+  const [list, setList] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    api.negotiations().then((d) => setList(d.negotiations)).catch((e) => setErr(e.why || e.message));
+  }, []);
+
+  async function open(negId) {
+    setErr(null);
+    try {
+      setDetail(await api.negotiation(negId));
+    } catch (ex) {
+      setErr(ex.why || ex.message);
+    }
+  }
+
+  if (err) return <p className="border border-danger/40 bg-danger-soft p-4 text-sm">{err}</p>;
+  if (!list) return <p className="text-sm text-muted">Reading the chains…</p>;
+
+  return (
+    <>
+      <p className="max-w-3xl text-sm text-muted">
+        Two agents with opposed interests — the buyer capped by a shopper's ceiling, the merchant
+        floored by its own margin — and every price decision made by code, not a model. Each side
+        wrote its own record; pick a negotiation to see the two accounts side by side.
+      </p>
+      {list.length === 0 && (
+        <p className="mt-5 text-sm text-muted">
+          No negotiations yet. Run <span className="font-mono text-xs">python -m lab.negotiate_demo</span>{" "}
+          to watch three play out.
+        </p>
+      )}
+      <ul className="mt-5 space-y-2">
+        {list.map((n) => (
+          <li key={n.neg_id}>
+            <button
+              onClick={() => open(n.neg_id)}
+              className="w-full border border-line-soft bg-card p-3 text-left text-sm hover:border-ink"
+            >
+              <span className="font-mono text-[11px] text-muted">{n.neg_id}</span>{" "}
+              <span className="label text-[10px] text-ink-soft">{n.outcome}</span>
+              <span className="ml-2">{n.item_id}</span>
+              <span className="text-muted"> at {n.shop_id}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {detail && (
+        <div className="mt-6">
+          <p
+            className={`px-3 py-1.5 text-sm font-semibold ${
+              detail.agreed ? "bg-good-soft text-good" : "bg-danger-soft text-danger"
+            }`}
+          >
+            {detail.finding}
+          </p>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {[["Buyer's record", detail.buyer], [`${detail.shop_id} record`, detail.shop]].map(
+              ([title, rows]) => (
+                <div key={title} className="border border-line-soft bg-card">
+                  <p className="label border-b border-line-soft p-3">{title}</p>
+                  <ol>
+                    {rows.map((e) => (
+                      <li key={e.i} className="border-b border-line-soft p-3 last:border-0">
+                        <span className="font-mono text-[11px] text-muted">#{e.i}</span>{" "}
+                        <span className="label text-[10px] text-ink-soft">{e.event}</span>
+                        <p className="mt-1 text-xs leading-relaxed">{e.why}</p>
+                      </li>
+                    ))}
+                    {rows.length === 0 && (
+                      <li className="p-3 text-xs text-muted">Nothing recorded on this side.</li>
+                    )}
+                  </ol>
+                </div>
+              ),
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function Lab() {
   const [d, setD] = useState(null);
   const [err, setErr] = useState(null);
@@ -508,6 +595,7 @@ export default function Audit() {
         {tab === "chains" && <Chains />}
         {tab === "trace" && <Trace />}
         {tab === "dispute" && <Dispute />}
+        {tab === "deals" && <Deals />}
         {tab === "lab" && <Lab />}
         {tab === "trust" && <Trust />}
       </section>

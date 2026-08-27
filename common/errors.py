@@ -100,6 +100,14 @@ class NotOutOfStock(VelcrowError):
 # Infrastructure codes — not part of the spec's commerce taxonomy; used for
 # plain missing-resource / malformed-request failures so commerce codes are
 # never abused for them.
+class OfferInvalid(VelcrowError):
+    """A negotiated price token that does not hold: tampered, expired, someone
+    else's, or already spent. The negotiation can simply be run again."""
+    code = "OFFER_INVALID"
+    http_status = 409
+    default_actions = ["RENEGOTIATE"]
+
+
 class NotFound(VelcrowError):
     code = "NOT_FOUND"
     http_status = 404

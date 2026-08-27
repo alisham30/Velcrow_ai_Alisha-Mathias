@@ -622,6 +622,110 @@ def create_app() -> FastAPI:
                      for e in shop_side],
         }
 
+    @app.post("/buyer/negotiate", status_code=201)
+    async def buyer_negotiate(request: Request) -> dict[str, Any]:
+        """Two agents, opposed interests, no human in the loop until money
+        moves (phase 11). The buyer side runs the deterministic strategy in
+        agent/buyer.py under a mandate capped at the shopper's ceiling, so
+        even a negotiator bug cannot spend past what the shopper allowed."""
+        body = await json_body(request)
+        shop_key = str(body.get("shop") or "")
+        shop = INSTALLED_SHOPS.get(shop_key) or next(
+            (v for v in INSTALLED_SHOPS.values() if v["shop_id"] == shop_key), None)
+        if shop is None:
+            raise errors.NotFound(f"no such shop '{shop_key}'", shop=shop_key)
+        item_id = str(body.get("item_id") or "")
+        variant = str(body.get("variant") or "")
+        qty = int(body.get("qty", 1))
+        ceiling = int(body.get("ceiling_paise", 0))
+        if not item_id or qty <= 0 or ceiling <= 0:
+            raise errors.BadRequest("item_id, qty and ceiling_paise are required")
+
+        # The mandate IS the ceiling: caps are per the whole purchase, so the
+        # wallet-side arithmetic backs the negotiator's promise in code.
+        token = mandate.issue(max_total=ceiling * qty, max_per_txn=ceiling * qty,
+                              shops=[shop["shop_id"]], ttl_seconds=600)
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
+            None, lambda: buyer.negotiate_and_buy(
+                shop, item_id, variant, qty, ceiling, token,
+                contact=str(body.get("contact") or "")))
+        return result
+
+    @app.get("/audit/negotiation/{neg_id}")
+    def audit_negotiation(neg_id: str) -> dict[str, Any]:
+        """Both sides' record of one negotiation, side by side (phase 11).
+
+        The buyer's chain says what it offered and why it stopped; the shop's
+        chain says what it decided and against which floor. Each entry is
+        hash-chained on its own side, so neither party can quietly rewrite its
+        half of the story after the fact - disagreement shows as disagreement.
+        """
+        def entries_for(actor: str) -> list[dict[str, Any]]:
+            return [e for e in chainlog.tail(actor, 10_000)
+                    if e.get("data", {}).get("neg_id") == neg_id]
+
+        buyer_side = entries_for("buyer")
+        shop_side: list[dict[str, Any]] = []
+        shop_id = ""
+        for st in INSTALLED_SHOPS.values():
+            found = entries_for(st["shop_id"])
+            if found:
+                shop_side, shop_id = found, st["shop_id"]
+                break
+        if not buyer_side and not shop_side:
+            raise errors.NotFound(f"no chain entries mention negotiation '{neg_id}'",
+                                  neg_id=neg_id)
+
+        buyer_price = next((e["data"].get("unit_price_paise") for e in reversed(buyer_side)
+                            if e["data"].get("unit_price_paise")), None)
+        shop_price = next((e["data"].get("unit_price_paise") for e in reversed(shop_side)
+                           if e["data"].get("unit_price_paise")), None)
+        agreed = buyer_price is not None and buyer_price == shop_price
+        walked = any(e["event"] == "negotiation_walked" for e in buyer_side)
+        refused = any(e["event"] == "negotiation_refused" for e in shop_side)
+
+        if agreed:
+            finding = (f"Both chains record the same agreed price: "
+                       f"{money.rupees(buyer_price)}/unit. The signed token the shop "
+                       "issued is the price the buyer redeemed.")
+        elif walked and refused:
+            finding = ("No deal, and both sides say so: the shop's floor was above the "
+                       "buyer's ceiling. Nothing was charged, and each chain shows its "
+                       "own side's reason.")
+        elif walked:
+            finding = "The buyer walked away; the shop's last word was a counter above the ceiling."
+        else:
+            finding = "The negotiation is still open or was abandoned mid-round."
+
+        return {"neg_id": neg_id, "shop_id": shop_id, "agreed": agreed,
+                "finding": finding,
+                "buyer": [{"i": e["i"], "event": e["event"], "why": e["why"], "ts": e["ts"]}
+                          for e in buyer_side],
+                "shop": [{"i": e["i"], "event": e["event"], "why": e["why"], "ts": e["ts"]}
+                         for e in shop_side]}
+
+    @app.get("/audit/negotiations")
+    def audit_negotiations(limit: int = 10) -> dict[str, Any]:
+        """Recent negotiations, newest first, for the audit page."""
+        seen: dict[str, dict[str, Any]] = {}
+        for e in chainlog.tail("buyer", 5000):
+            nid = e.get("data", {}).get("neg_id")
+            if not nid:
+                continue
+            rec = seen.setdefault(nid, {"neg_id": nid, "ts": e["ts"],
+                                        "shop_id": e["data"].get("shop_id"),
+                                        "item_id": e["data"].get("product_id"),
+                                        "outcome": "open"})
+            rec["ts"] = e["ts"]
+            if e["event"] == "negotiated_purchase":
+                rec["outcome"] = "bought"
+                rec["amount_paise"] = e["data"].get("amount_paise")
+            elif e["event"] == "negotiation_walked":
+                rec["outcome"] = "walked"
+        ordered = sorted(seen.values(), key=lambda r: r["ts"], reverse=True)
+        return {"negotiations": ordered[:limit]}
+
     @app.get("/audit/traces")
     def audit_traces(limit: int = 12) -> dict[str, Any]:
         """Full turns: what the agent chose, in order, and how many rounds it

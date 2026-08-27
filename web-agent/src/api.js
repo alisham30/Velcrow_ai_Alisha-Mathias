@@ -60,6 +60,8 @@ export const audit = {
     request("/audit/tamper", { method: "POST", body: { actor, index } }),
   dispute: (txnRef) => request(`/audit/dispute/${encodeURIComponent(txnRef)}`),
   traces: () => request("/audit/traces"),
+  negotiations: () => request("/audit/negotiations"),
+  negotiation: (negId) => request(`/audit/negotiation/${encodeURIComponent(negId)}`),
   revenueLab: () => request("/audit/revenue-lab"),
 };
 

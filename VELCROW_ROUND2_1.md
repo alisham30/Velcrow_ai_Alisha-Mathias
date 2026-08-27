@@ -364,6 +364,63 @@ Instead: FreshKart and Loomcraft get **distinct** identities — different palet
 | 9 | Deploy, polish per §11, two clean full dry runs, README + architecture diagram | Entire §15 demo path runs twice with zero terminal use |
 | 10 | Record the 5-minute video, write the final README, submit. *(WhatsApp only if everything above is done and dry-run clean)* | Submitted |
 
+**Phase 11 as built (2026-08-27).** Acceptance met on all three counts, live.
+
+- `shop/negotiation.py`: `POST /negotiate` under the same mandate as ordering.
+  The policy is stated in full in the module docstring and is pure integer
+  code: floor = cost x (1 + floor%) in basis points (a float here invented a
+  phantom rupee - caught before shipping), target = floor + half the headroom,
+  accept / counter / refuse decided by comparison, a repeated floor-clearing
+  offer closed rather than lost. Refusals name the floor and the minimum,
+  deliberately: this merchant would rather close a floor-priced sale than
+  protect a bluff.
+- Counters and acceptances are signed price tokens (HMAC-SHA256, 120s expiry,
+  single-use) redeemed at `/order`. Tampering kills the signature; a second
+  redemption is refused; a token cannot price a different basket, another
+  shop's basket, or ride under coupons. New taxonomy code `OFFER_INVALID`.
+- `agent/buyer.py` `negotiate_and_buy`: the buyer's half, deterministic and
+  published - opens at 80% of the ceiling, takes a counter within the ceiling,
+  stands its ground twice when countered above it, walks when the floor is
+  above the ceiling. Its mandate is capped at ceiling x qty, so even a buggy
+  negotiator dies at the shop's own OverCap check.
+- Both sides log every step to their own chain under one negotiation id
+  (minted by the buyer so the opening is on the record too).
+  `GET /audit/negotiation/{neg_id}` lays the two accounts side by side;
+  the Audit page grew a Negotiations tab that renders it.
+- `lab/negotiate_demo.py` plays three ceilings live: comfortable -> bought at
+  the counter (₹1,253.50), tight -> shop closes at the buyer's held ceiling
+  (₹1,100.00), impossible -> refused with the floor named, nothing charged.
+
+346 tests passing. Committing is the operator's call, per standing instruction.
+
+**Phase 10 as built (2026-08-27).** Acceptance met in a live run. What shipped:
+
+- `shop/acp.py`: the ACP checkout-session surface at the spec's own paths —
+  create / get / update / complete / cancel — implementing version
+  **2026-04-17**, read from the live published spec the same day. The live
+  version differs from the protocol's 2025 launch in a way memory would have
+  got wrong: request-side Items carry **no quantity field**; repetition of the
+  id is the quantity and the merchant consolidates (verified against the JSON
+  Schema and the multi-item example).
+- The adapter is a dialect, not a second door: `complete` requires the mandate
+  as the Bearer token and calls the SAME extracted `place_order` /
+  `settle_payment` the native route uses, so both protocols price with one
+  coupon engine, gate on one set of caps, and settle rescues identically. A
+  test asserts the two surfaces quote the same total for the same basket.
+- The manifest declares the `checkout` block beside the native one and says
+  exactly what is implemented: checkout surface only, test-mode `spt`
+  credential simulation; delegate-payment vaulting, webhooks and signatures
+  are named as NOT implemented, per §13's claim discipline.
+- `lab/third_party_buyer.py` now transacts through ACP — still importing
+  nothing of ours, still naming neither shop. Live: paid at both shops;
+  out-of-stock XL kurta → the spec's `out_of_stock` message → recovered by
+  reserving via the manifest-declared native path, restock date reported;
+  at the no-reservations shop the same failure is refused with the reason.
+- Every ACP action lands on the shop's chain (`acp_session_created`,
+  `acp_session_completed`, `acp_session_canceled`, `acp_complete_refused`).
+
+328 tests passing. Committing is the operator's call, per standing instruction.
+
 **Phase 9 as built (2026-08-27).** Acceptance met on all three counts, and the
 work was larger than the estimate because the ledger turned out never to settle
 at all rather than settling late. What shipped:
@@ -473,15 +530,15 @@ Everything else is upside.
 | Money bounded, gated, explainable | **Exceeds the bar** |
 | Audit trail | **Exceeds the bar** — dual chains, tamper, dispute-by-index |
 | One failure handled gracefully | **Exceeds** — two, both provable |
-| Why now: UAP / ACP / AP2 / x402 | **Hole** — §13 positioning written, no adapter |
+| Why now: UAP / ACP / AP2 / x402 | **Closed 2026-08-27** — ACP checkout adapter live at both shops, version 2026-04-17 read from the published spec; §13 positioning holds |
 
 ### The phases
 
 | # | Phase | Fixes / amplifies | Acceptance test | Est |
 |---|---|---|---|---|
 | **9 — DONE 2026-08-27** | **Truth in the numbers.** Settle the demand ledger when stock returns and the wanting party is told. `reset_demo.ps1`, then a scripted paired seed: N baskets bought plainly, N through the agent claiming a coupon, taking a near-miss and rescuing a stock-out. | Fixes the missing revenue number and a ledger that never settles and so misleads both the console and the growth agent | Revenue Lab shows a **positive measured lift** computed only from real paid orders; the console's Lost demand table shows only demand still outstanding; the growth agent's read of "lost demand" matches what is actually still lost | 0.5d |
-| **10** | **ACP adapter** (was 8d). Read the live published ACP spec and its OpenAPI first — take no endpoint shape or version string from this document or from memory. Checkout-session surface over the existing cart/order/confirm. Manifest declares it alongside the native block. | Closes the "why now" hole the brief names explicitly | The SAME unmodified `third_party_buyer.py` completes a purchase at **both** shops through the ACP surface, having negotiated capabilities first, and recovers from `OUT_OF_STOCK` by reserving | 1d |
-| **11** | **Agent-to-agent negotiation.** The buyer presents a mandate and a ceiling; the shop's growth agent answers with `simulate_discount` bounded by the margin floor — accept, counter, or refuse with a reason. Counter-offers are signed and time-boxed. Both sides log to their own chain. | **The standout.** The brief calls agent-to-agent commerce "the open problem of the year"; this is two autonomous parties with opposed interests, bounded by policy in code | A buyer whose ceiling is under list price receives a bounded counter-offer it can rank; a ceiling below the margin floor is **refused with the reason**, never quietly accepted; the dispute view shows both sides' record of the same negotiation | 1d |
+| **10 — DONE 2026-08-27** | **ACP adapter** (was 8d). Read the live published ACP spec and its OpenAPI first — take no endpoint shape or version string from this document or from memory. Checkout-session surface over the existing cart/order/confirm. Manifest declares it alongside the native block. | Closes the "why now" hole the brief names explicitly | The SAME unmodified `third_party_buyer.py` completes a purchase at **both** shops through the ACP surface, having negotiated capabilities first, and recovers from `OUT_OF_STOCK` by reserving | 1d |
+| **11 — DONE 2026-08-27** | **Agent-to-agent negotiation.** The buyer presents a mandate and a ceiling; the shop's growth agent answers with `simulate_discount` bounded by the margin floor — accept, counter, or refuse with a reason. Counter-offers are signed and time-boxed. Both sides log to their own chain. | **The standout.** The brief calls agent-to-agent commerce "the open problem of the year"; this is two autonomous parties with opposed interests, bounded by policy in code | A buyer whose ceiling is under list price receives a bounded counter-offer it can rank; a ceiling below the margin floor is **refused with the reason**, never quietly accepted; the dispute view shows both sides' record of the same negotiation | 1d |
 | **12** | **Cross-sell from real baskets.** Co-purchase computed from paid `line_items` across both shops' own orders, with a support count. Surfaced by the widget at the moment it helps, never as a banner. | Fixes the weakest of the four named directions | Every suggestion states how many past baskets it rests on; nothing is suggested below a stated support floor; suggestions are absent on a shop with too little history rather than invented | 0.5d |
 | **13** | **`lab/determinism_check.py`** (was 8c) + Trace tab in plain language. | Amplifies the "not a script" proof; the Trace tab currently prints `update_qty(line_id="line_625a4a05", qty=1)`, which is readable to an engineer and to nobody else | Same sentence, two stock states, two visibly different traces side by side; the Trace tab reads as sentences a merchant understands | 0.5d |
 | **14** | **Submission.** Two clean full dry runs with zero terminal use. README with the architecture diagram and the honest claims table from §13. Five-minute video. | Non-negotiable | The §15 demo path runs twice, unattended, without a terminal; the video is recorded and the repo is submitted | 1.5d |

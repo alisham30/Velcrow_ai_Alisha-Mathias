@@ -1,10 +1,11 @@
-r"""A stranger's buying agent (spec 6.6).
+r"""A stranger's buying agent (spec 6.6, 6.7).
 
 This client has never seen either shop. It imports nothing from `agent/`, hard
 codes no merchant name, and knows no endpoint that the merchant's own manifest
 did not tell it. It reads /.well-known/agent-commerce.json, negotiates
-capabilities, discovers the catalog, presents a mandate, orders, confirms
-payment, and branches on the typed error codes.
+capabilities, discovers the catalog, and then buys through the merchant's
+ACP-shaped checkout surface - the standards-shaped dialect - falling back to
+a typed refusal it can explain when the shop objects.
 
 Run it unchanged against either shop:
 
@@ -13,17 +14,18 @@ Run it unchanged against either shop:
 
 Be precise about what this is: a deterministic protocol client, NOT an agent.
 It proves the API contract is open - that a buyer needs no VelcrowAI code and
-no private knowledge to transact. The agents in this project are the shopper
-agent, the consumer buyer agent and the merchant growth agent.
+no private knowledge to transact, and that the checkout it drives is the shape
+the Agentic Commerce Protocol publishes, at the version the manifest declares.
 
 The mandate comes from the BUYER's own authorization service (--trust), which
 is the buyer's side of the arrangement: a merchant never issues the permission
-to spend against itself.
+to spend against itself. On the ACP surface it rides as the Bearer token.
 """
 from __future__ import annotations
 
 import argparse
 import sys
+import uuid
 
 import httpx
 
@@ -37,15 +39,17 @@ def main() -> int:
     ap.add_argument("--want", default="", help="substring of the product name to prefer")
     ap.add_argument("--size", default="",
                     help="variant label to insist on, whatever this merchant calls variants")
+    ap.add_argument("--qty", type=int, default=1, help="units to buy")
     args = ap.parse_args()
     out = sys.stdout
 
     with httpx.Client(timeout=20) as http:
         # 1. discovery - the only thing known in advance is the well-known path
         m = http.get(f"{args.shop_url}/.well-known/agent-commerce.json").json()
-        merchant, order = m["merchant"], m["order"]
+        merchant, checkout = m["merchant"], m["checkout"]
         print(f"discovered: {merchant['name']} ({merchant['category']}), "
-              f"pays in {m['currency']}, speaks {order['protocol']}", file=out)
+              f"pays in {m['currency']}, checkout speaks {checkout['protocol']} "
+              f"{checkout['version']}", file=out)
 
         # 2. capability negotiation - adapt to the merchant instead of assuming
         caps = http.post(f"{args.shop_url}/agent/capabilities",
@@ -57,7 +61,7 @@ def main() -> int:
 
         # 3. catalog, from wherever the manifest says it lives
         catalog = http.get(f"{args.shop_url}{m['catalog']}").json()
-        affordable = [p for p in catalog if p["price_paise"] <= args.budget]
+        affordable = [p for p in catalog if p["price_paise"] * args.qty <= args.budget]
         if args.want:
             affordable = [p for p in affordable
                           if args.want.lower() in p["name"].lower()] or affordable
@@ -70,65 +74,79 @@ def main() -> int:
         if variants:
             live = [v for v in variants if v["stock"] > 0]
             # An insisted-on size is honoured even when it is out - being told
-            # OUT_OF_STOCK and recovering is better than quietly buying the
+            # out_of_stock and recovering is better than quietly buying the
             # wrong thing.
             variant = (args.size or (live or variants)[0]["label"])
         print(f"chose {pick['name']}"
               + (f" [{variant}]" if variant else "")
-              + f" at {pick['price_paise']} paise", file=out)
+              + f" x{args.qty} at {pick['price_paise']} paise", file=out)
 
-        # 4. the buyer's own mandate, presented the way the manifest asks
+        # 4. an ACP checkout session. Item ids and quantity-by-repetition are
+        #    whatever the manifest says they are - nothing here is assumed.
+        item_id = pick["id"] + (f"::{variant}" if variant else "")
+        create = checkout["endpoints"]["create"].split(" ", 1)[1]
+        sess = http.post(f"{args.shop_url}{create}",
+                         json={"line_items": [{"id": item_id}] * args.qty,
+                               "buyer": {"email": "third-party-buyer@example.com"}},
+                         headers={"Idempotency-Key": f"tpb-{uuid.uuid4().hex[:10]}"}).json()
+        total = next((t["amount"] for t in sess.get("totals", []) if t["type"] == "total"), 0)
+        print(f"session {sess.get('id')} -> {sess.get('status')}, total {total} paise",
+              file=out)
+
+        # 5. not ready? read the spec-typed messages and recover the one way
+        #    this merchant said it supports.
+        stockout = next((msg for msg in sess.get("messages", [])
+                         if msg.get("code") == "out_of_stock"), None)
+        if stockout:
+            reserve_at = (m["order"].get("reserve") or "").split(" ")[-1]
+            if reserve_at:
+                token = http.post(f"{args.trust}/mandate",
+                                  json={"shops": [merchant["id"]],
+                                        "max_total_paise": args.budget,
+                                        "max_per_txn_paise": args.budget}).json()["token"]
+                res = http.post(f"{args.shop_url}{reserve_at}",
+                                json={"item_id": pick["id"], "variant": variant,
+                                      "qty": args.qty,
+                                      "contact_ref": "third-party-buyer@example.com"},
+                                headers={"Authorization": f"Mandate {token}"})
+                res.raise_for_status()
+                print(f"out_of_stock -> reserved instead ({res.json()['res_id']}): "
+                      f"{stockout['content']}", file=out)
+                return 0
+            print(f"out_of_stock and this merchant takes no reservations: "
+                  f"{stockout['content']}", file=out)
+            return 1
+        if sess.get("status") != "ready_for_payment":
+            print(f"cannot pay: {[msg.get('content') for msg in sess.get('messages', [])]}",
+                  file=out)
+            return 1
+
+        # 6. the buyer's own mandate, presented as the Bearer the manifest asks
         token = http.post(f"{args.trust}/mandate",
                           json={"shops": [merchant["id"]], "max_total_paise": args.budget,
                                 "max_per_txn_paise": args.budget}).json()["token"]
-        auth = {"Authorization": f"Mandate {token}"}
-
-        # 5. basket -> order, recovering from whatever the shop objects to
-        cart = http.post(f"{args.shop_url}/cart", json={}).json()["cart_id"]
-        line = http.patch(f"{args.shop_url}/cart/{cart}",
-                          json={"op": "add", "item_id": pick["id"], "variant": variant, "qty": 1})
-        if line.status_code >= 400:
-            err = line.json()
-            # Recover only in a way this merchant said it supports: the reserve
-            # path comes out of the manifest, and is null at a shop that takes
-            # no reservations, so there is nothing to call there.
-            reserve_at = (order.get("reserve") or "").split(" ")[-1]
-            if (err.get("code") == "OUT_OF_STOCK" and reserve_at
-                    and "RESERVE" in err.get("available_actions", [])):
-                res = http.post(f"{args.shop_url}{reserve_at}",
-                                json={"item_id": pick["id"], "variant": variant, "qty": 1,
-                                      "contact_ref": "third-party-buyer@example.com"},
-                                headers=auth)
-                res.raise_for_status()
-                print(f"OUT_OF_STOCK -> reserved instead ({res.json()['res_id']}), "
-                      f"back {err.get('restock_date', 'unknown')}", file=out)
-                return 0
-            print(f"refused: {err.get('code')} - {err.get('why')}", file=out)
-            return 1
-
-        placed = http.post(f"{args.shop_url}/order", json={"cart_id": cart},
-                           headers={**auth, "Idempotency-Key": f"tpb-{cart}"})
-        if placed.status_code >= 400:
-            err = placed.json()
-            print(f"order refused: {err.get('code')} - {err.get('why')}", file=out)
-            return 1
-        placed = placed.json()
-        print(f"quoted {placed['charge_amount']} paise"
-              + (f", coupons {placed['coupon']['codes']}" if placed.get("coupon", {}).get("codes")
-                 else ", no coupon")
-              + f", txn {placed['txn_ref']}", file=out)
-
-        # 6. settle, then verify against the merchant's own record
-        done = http.post(f"{args.shop_url}/confirm-payment",
-                         json={"txn_ref": placed["txn_ref"],
-                               "razorpay_order_id": "order_third_party_demo",
-                               "payment_ref": "pay_third_party_demo"},
-                         headers={"Idempotency-Key": f"tpb-confirm-{placed['txn_ref']}"})
+        complete = checkout["endpoints"]["complete"].split(" ", 1)[1] \
+            .replace("{checkout_session_id}", sess["id"])
+        done = http.post(f"{args.shop_url}{complete}",
+                         json={"buyer": {"email": "third-party-buyer@example.com",
+                                         "first_name": "Third", "last_name": "Party"},
+                               "payment_data": {"handler_id": "razorpay_test_spt",
+                                                "instrument": {"type": "card",
+                                                               "credential": {"type": "spt",
+                                                                              "token": f"spt_tpb_{uuid.uuid4().hex[:10]}"}}}},
+                         headers={"Authorization": f"Bearer {token}",
+                                  "Idempotency-Key": f"tpb-c-{sess['id']}"})
         if done.status_code >= 400:
             err = done.json()
-            print(f"confirm refused: {err.get('code')} - {err.get('why')}", file=out)
+            print(f"complete refused: {err.get('code')} - {err.get('message')}", file=out)
             return 1
-        final = http.get(f"{args.shop_url}/order/{placed['txn_ref']}").json()
+        done = done.json()
+        order = done.get("order", {})
+        print(f"session {done['status']}; order {order.get('id')} "
+              f"({order.get('status')})", file=out)
+
+        # 7. verify against the merchant's own record, at the order permalink
+        final = http.get(order["permalink_url"]).json()
         print(f"PAID {final['charge_amount']} paise at {merchant['name']}, "
               f"status {final['status']}", file=out)
         return 0

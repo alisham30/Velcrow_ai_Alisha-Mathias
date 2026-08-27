@@ -18,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from common import chainlog, contact, errors, mandate
+from shop import acp, negotiation
 from shop import coupons as coupon_engine
 from shop.config import load_catalog, load_config
 from shop.db import PRICE_LOCK_SECONDS, ShopDB
@@ -245,57 +246,113 @@ def create_app() -> FastAPI:
 
     # -- order / payment ----------------------------------------------------
 
+    def place_order(body: dict[str, Any], claims: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Price, gate and hold: the ONE way an order comes into being.
+
+        Shared by the native /order route and the ACP checkout adapter, so a
+        standards-shaped request passes through exactly the same caps, coupon
+        maths and stock holds as a native one - the protocol is a dialect,
+        not a second door.
+        """
+        cart_id = body["cart_id"]
+        view = cart_view(cart_id)
+        if not view["items"]:
+            raise errors.BadRequest("cart is empty; nothing to order", cart_id=cart_id)
+        for l in view["items"]:
+            check_stock(l["item_id"], l["variant"], l["qty"])
+
+        # A negotiated price rides in as a signed token (phase 11). The token
+        # is verified in code - signature, expiry, this shop, single use - and
+        # must describe EXACTLY the basket being bought, or someone could
+        # negotiate one cheap line and smuggle a trolley through at that
+        # discount. A negotiated order takes no coupons on top: the price was
+        # agreed as final, and stacking would give away margin twice.
+        offer = body.get("offer_token")
+        negotiated = None
+        if offer is not None:
+            negotiated = negotiation.verify_offer_token(offer, shop_id)
+            lines = view["items"]
+            if (len(lines) != 1
+                    or lines[0]["item_id"] != negotiated["item_id"]
+                    or (lines[0]["variant"] or "") != negotiated["variant"]
+                    or int(lines[0]["qty"]) != int(negotiated["qty"])):
+                raise errors.OfferInvalid(
+                    "offer token does not match the cart: the negotiated price covers "
+                    f"{negotiated['qty']} x '{negotiated['item_id']}' "
+                    f"[{negotiated['variant'] or '-'}] and nothing else",
+                    neg_id=negotiated["neg_id"])
+        if negotiated:
+            best = {"codes": [], "discount_paise": 0,
+                    "net_total_paise": int(negotiated["unit_price_paise"]) * int(negotiated["qty"]),
+                    "arithmetic": (f"negotiated: {negotiated['qty']} x "
+                                   f"{negotiated['unit_price_paise']} paise "
+                                   f"(neg {negotiated['neg_id']})")}
+            charge = int(negotiated["unit_price_paise"]) * int(negotiated["qty"])
+        else:
+            best = coupon_engine.evaluate(view["items"], all_coupons())["best"]
+            charge = view["subtotal_paise"] - best["discount_paise"]
+        if charge > claims["max_per_txn"]:
+            e = errors.OverCap(
+                f"charge {charge} paise exceeds the mandate's max_per_txn "
+                f"{claims['max_per_txn']} paise", max_per_txn=claims["max_per_txn"],
+                requested_paise=charge)
+            chainlog.append(shop_id, "order_refused", e.why,
+                            {"code": e.code, "cart_id": cart_id, "jti": claims["jti"]})
+            raise e
+        line_items = [{"item_id": l["item_id"], "variant": l["variant"], "qty": l["qty"],
+                       "unit_price_paise": l["unit_price_paise"]} for l in view["items"]]
+        for li in line_items:  # hold stock until paid or price lock expires
+            db.adjust_stock(li["item_id"], li["variant"], -li["qty"])
+        shopper_ref = str(body.get("shopper_ref") or "")
+        contact_key, contact_ref = "", str(body.get("contact") or "")
+        if contact_ref:
+            try:
+                contact_key = contact.normalise(contact_ref)
+            except contact.InvalidContact:
+                contact_key, contact_ref = "", ""   # never block a sale on it
+        if contact_key:
+            db.link_shopper(contact_key, shopper_ref, contact_ref)
+        order = db.create_order(cart_id, charge, line_items, best, claims["jti"],
+                                shopper_ref=shopper_ref, contact_key=contact_key,
+                                contact_ref=contact_ref,
+                                assisted=bool(body.get("assisted")))
+        if negotiated:
+            if not db.redeem_offer(str(offer["sig"]), negotiated["neg_id"],
+                                   order["txn_ref"]):
+                # Unwind the hold: this signed price was already spent.
+                for li in line_items:
+                    db.adjust_stock(li["item_id"], li["variant"], li["qty"])
+                db.set_order_status(order["txn_ref"], "expired")
+                raise errors.OfferInvalid(
+                    f"offer token for negotiation {negotiated['neg_id']} was already "
+                    "redeemed; a signed price is spendable exactly once",
+                    neg_id=negotiated["neg_id"])
+            chainlog.append(shop_id, "negotiated_price_honoured",
+                            f"order {order['txn_ref']} priced by negotiation "
+                            f"{negotiated['neg_id']}: {negotiated['qty']} x "
+                            f"{negotiated['unit_price_paise']} paise = {charge} paise, "
+                            "signature verified, token now spent",
+                            {"txn_ref": order["txn_ref"],
+                             "neg_id": negotiated["neg_id"],
+                             "unit_price_paise": negotiated["unit_price_paise"],
+                             "charge_amount": charge, "jti": claims["jti"]})
+        chainlog.append(shop_id, "order_created",
+                        f"order {order['txn_ref']}: {len(line_items)} line(s), subtotal "
+                        f"{view['subtotal_paise']} paise, coupons {best['codes'] or 'none'} "
+                        f"(-{best['discount_paise']} paise), charge {charge} paise; stock held "
+                        f"for {PRICE_LOCK_SECONDS}s under mandate {claims['jti'][:8]}",
+                        {"txn_ref": order["txn_ref"], "charge_amount": charge,
+                         "coupon": best, "jti": claims["jti"]})
+        return 201, {"txn_ref": order["txn_ref"], "shop_id": shop_id, "charge_amount": charge,
+                     "currency": "INR", "line_items": line_items, "coupon": best,
+                     "expires_at": order["expires_ts"], "status": "pending"}
+
     @app.post("/order", status_code=201)
     async def create_order(request: Request) -> JSONResponse:
         body = await json_body(request)
         claims = require_mandate(request)
-
-        def handler() -> tuple[int, dict[str, Any]]:
-            cart_id = body["cart_id"]
-            view = cart_view(cart_id)
-            if not view["items"]:
-                raise errors.BadRequest("cart is empty; nothing to order", cart_id=cart_id)
-            for l in view["items"]:
-                check_stock(l["item_id"], l["variant"], l["qty"])
-            best = coupon_engine.evaluate(view["items"], all_coupons())["best"]
-            charge = view["subtotal_paise"] - best["discount_paise"]
-            if charge > claims["max_per_txn"]:
-                e = errors.OverCap(
-                    f"charge {charge} paise exceeds the mandate's max_per_txn "
-                    f"{claims['max_per_txn']} paise", max_per_txn=claims["max_per_txn"],
-                    requested_paise=charge)
-                chainlog.append(shop_id, "order_refused", e.why,
-                                {"code": e.code, "cart_id": cart_id, "jti": claims["jti"]})
-                raise e
-            line_items = [{"item_id": l["item_id"], "variant": l["variant"], "qty": l["qty"],
-                           "unit_price_paise": l["unit_price_paise"]} for l in view["items"]]
-            for li in line_items:  # hold stock until paid or price lock expires
-                db.adjust_stock(li["item_id"], li["variant"], -li["qty"])
-            shopper_ref = str(body.get("shopper_ref") or "")
-            contact_key, contact_ref = "", str(body.get("contact") or "")
-            if contact_ref:
-                try:
-                    contact_key = contact.normalise(contact_ref)
-                except contact.InvalidContact:
-                    contact_key, contact_ref = "", ""   # never block a sale on it
-            if contact_key:
-                db.link_shopper(contact_key, shopper_ref, contact_ref)
-            order = db.create_order(cart_id, charge, line_items, best, claims["jti"],
-                                    shopper_ref=shopper_ref, contact_key=contact_key,
-                                    contact_ref=contact_ref,
-                                    assisted=bool(body.get("assisted")))
-            chainlog.append(shop_id, "order_created",
-                            f"order {order['txn_ref']}: {len(line_items)} line(s), subtotal "
-                            f"{view['subtotal_paise']} paise, coupons {best['codes'] or 'none'} "
-                            f"(-{best['discount_paise']} paise), charge {charge} paise; stock held "
-                            f"for {PRICE_LOCK_SECONDS}s under mandate {claims['jti'][:8]}",
-                            {"txn_ref": order["txn_ref"], "charge_amount": charge,
-                             "coupon": best, "jti": claims["jti"]})
-            return 201, {"txn_ref": order["txn_ref"], "shop_id": shop_id, "charge_amount": charge,
-                         "currency": "INR", "line_items": line_items, "coupon": best,
-                         "expires_at": order["expires_ts"], "status": "pending"}
-
-        return await idempotent(request, "/order", body, handler)
+        return await idempotent(request, "/order", body,
+                                lambda: place_order(body, claims))
 
     @app.get("/order/{txn_ref}")
     def get_order(txn_ref: str) -> dict[str, Any]:
@@ -405,70 +462,74 @@ def create_app() -> FastAPI:
                 "then_subtotal_paise": then_total, "now_subtotal_paise": now_total,
                 "delta_paise": now_total - then_total}
 
+    def settle_payment(body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Mark paid and settle everything a paid basket answers - rescued
+        reservations, recovered demand, the emptied cart. One function, called
+        by the native route and the ACP adapter, so a sale means the same thing
+        whichever protocol carried it."""
+        txn_ref = body["txn_ref"]
+        order = fresh_order(txn_ref)
+        if order is None:
+            raise errors.NotFound(f"no such order '{txn_ref}'", txn_ref=txn_ref)
+        if order["status"] == "paid":
+            raise errors.IdempotentReplay(f"order {txn_ref} is already paid; refusing double confirm",
+                                          txn_ref=txn_ref)
+        if order["status"] != "pending":
+            raise errors.PriceChanged(
+                f"order {txn_ref} is '{order['status']}'; the price lock has lapsed - requote",
+                txn_ref=txn_ref, old_amount=order["charge_amount"], new_amount=None)
+        db.set_order_status(txn_ref, "paid", body.get("razorpay_order_id"), body.get("payment_ref"))
+        # A sale the shop had already refused for stock is a rescued sale
+        # (spec 7.2). Derived from the reservations this basket satisfies,
+        # not asserted by whoever placed the order.
+        rescued = db.convert_reservations(order)
+        # A shop that cannot HOLD a unit can still lose a sale and win it
+        # back, and until this ran that recovery was invisible: the ledger
+        # kept reporting money as lost that had already been paid. Settle
+        # the refusal against the basket that answered it.
+        settled = db.convert_demand(order)
+        if settled:
+            recovered_paise = sum(d["value_paise"] for d in settled)
+            db.mark_order_rescued(txn_ref)
+            chainlog.append(shop_id, "demand_recovered",
+                            f"order {txn_ref} answered {len(settled)} refusal(s) this shop "
+                            f"had recorded as lost demand worth {recovered_paise} paise; "
+                            "those ledger rows are now closed, not outstanding",
+                            {"txn_ref": txn_ref, "settled": settled,
+                             "recovered_paise": recovered_paise})
+        if rescued:
+            chainlog.append(shop_id, "sale_rescued",
+                            f"order {txn_ref} closed {len(rescued)} reservation(s) "
+                            f"({', '.join(rescued)}) that this shop had previously turned "
+                            "away for stock; revenue recovered rather than lost",
+                            {"txn_ref": txn_ref, "reservations": rescued,
+                             "amount_paise": order["charge_amount"]})
+        # The basket has been bought, so it stops being a basket. Until this
+        # ran, a paid order left its lines sitting in the drawer, and the
+        # next add stacked on top of goods already paid for.
+        cleared = db.clear_cart(order["cart_id"])
+        chainlog.append(shop_id, "payment_confirmed",
+                        f"order {txn_ref} confirmed paid: {order['charge_amount']} paise via "
+                        f"Razorpay test order {body.get('razorpay_order_id')} "
+                        f"(payment ref {body.get('payment_ref')}); "
+                        f"cart {order['cart_id']} emptied ({cleared} line(s))",
+                        {"txn_ref": txn_ref, "charge_amount": order["charge_amount"],
+                         "razorpay_order_id": body.get("razorpay_order_id"),
+                         "payment_ref": body.get("payment_ref"),
+                         "cart_id": order["cart_id"], "lines_cleared": cleared})
+        return 200, {"txn_ref": txn_ref, "status": "paid",
+                     "charge_amount": order["charge_amount"],
+                     "razorpay_order_id": body.get("razorpay_order_id"),
+                     "payment_ref": body.get("payment_ref"),
+                     "cart_id": order["cart_id"], "cart_cleared": True,
+                     "rescued_reservations": rescued,
+                     "recovered_demand": settled}
+
     @app.post("/confirm-payment")
     async def confirm_payment(request: Request) -> JSONResponse:
         body = await json_body(request)
-
-        def handler() -> tuple[int, dict[str, Any]]:
-            txn_ref = body["txn_ref"]
-            order = fresh_order(txn_ref)
-            if order is None:
-                raise errors.NotFound(f"no such order '{txn_ref}'", txn_ref=txn_ref)
-            if order["status"] == "paid":
-                raise errors.IdempotentReplay(f"order {txn_ref} is already paid; refusing double confirm",
-                                              txn_ref=txn_ref)
-            if order["status"] != "pending":
-                raise errors.PriceChanged(
-                    f"order {txn_ref} is '{order['status']}'; the price lock has lapsed - requote",
-                    txn_ref=txn_ref, old_amount=order["charge_amount"], new_amount=None)
-            db.set_order_status(txn_ref, "paid", body.get("razorpay_order_id"), body.get("payment_ref"))
-            # A sale the shop had already refused for stock is a rescued sale
-            # (spec 7.2). Derived from the reservations this basket satisfies,
-            # not asserted by whoever placed the order.
-            rescued = db.convert_reservations(order)
-            # A shop that cannot HOLD a unit can still lose a sale and win it
-            # back, and until this ran that recovery was invisible: the ledger
-            # kept reporting money as lost that had already been paid. Settle
-            # the refusal against the basket that answered it.
-            settled = db.convert_demand(order)
-            if settled:
-                recovered_paise = sum(d["value_paise"] for d in settled)
-                db.mark_order_rescued(txn_ref)
-                chainlog.append(shop_id, "demand_recovered",
-                                f"order {txn_ref} answered {len(settled)} refusal(s) this shop "
-                                f"had recorded as lost demand worth {recovered_paise} paise; "
-                                "those ledger rows are now closed, not outstanding",
-                                {"txn_ref": txn_ref, "settled": settled,
-                                 "recovered_paise": recovered_paise})
-            if rescued:
-                chainlog.append(shop_id, "sale_rescued",
-                                f"order {txn_ref} closed {len(rescued)} reservation(s) "
-                                f"({', '.join(rescued)}) that this shop had previously turned "
-                                "away for stock; revenue recovered rather than lost",
-                                {"txn_ref": txn_ref, "reservations": rescued,
-                                 "amount_paise": order["charge_amount"]})
-            # The basket has been bought, so it stops being a basket. Until this
-            # ran, a paid order left its lines sitting in the drawer, and the
-            # next add stacked on top of goods already paid for.
-            cleared = db.clear_cart(order["cart_id"])
-            chainlog.append(shop_id, "payment_confirmed",
-                            f"order {txn_ref} confirmed paid: {order['charge_amount']} paise via "
-                            f"Razorpay test order {body.get('razorpay_order_id')} "
-                            f"(payment ref {body.get('payment_ref')}); "
-                            f"cart {order['cart_id']} emptied ({cleared} line(s))",
-                            {"txn_ref": txn_ref, "charge_amount": order["charge_amount"],
-                             "razorpay_order_id": body.get("razorpay_order_id"),
-                             "payment_ref": body.get("payment_ref"),
-                             "cart_id": order["cart_id"], "lines_cleared": cleared})
-            return 200, {"txn_ref": txn_ref, "status": "paid",
-                         "charge_amount": order["charge_amount"],
-                         "razorpay_order_id": body.get("razorpay_order_id"),
-                         "payment_ref": body.get("payment_ref"),
-                         "cart_id": order["cart_id"], "cart_cleared": True,
-                         "rescued_reservations": rescued,
-                         "recovered_demand": settled}
-
-        return await idempotent(request, "/confirm-payment", body, handler)
+        return await idempotent(request, "/confirm-payment", body,
+                                lambda: settle_payment(body))
 
     # -- reservations -------------------------------------------------------
 
@@ -1013,8 +1074,6 @@ def create_app() -> FastAPI:
 
     @app.get("/.well-known/agent-commerce.json")
     def manifest() -> dict[str, Any]:
-        # The ACP checkout block is added in Phase 8d, after reading the live
-        # published ACP spec (spec 6.6 forbids copying a version string).
         return {
             "merchant": {"id": shop_id, "name": cfg["brand"], "category": cfg["category"]},
             "manifest_version": "velcrow-0.1",
@@ -1050,9 +1109,16 @@ def create_app() -> FastAPI:
                 "idempotency_header": "Idempotency-Key",
                 "amounts": "integer paise",
             },
+            # The standards-shaped checkout surface (spec 6.7), declared
+            # alongside the native block, not replacing it. Version string and
+            # endpoint shapes come from the live published ACP spec.
+            "checkout": acp.manifest_block(caps),
+            # Agent-to-agent price negotiation (phase 11): policy in code,
+            # counters signed and time-boxed, refusals typed and reasoned.
+            "negotiation": negotiation.manifest_block(),
             "errors": ["OUT_OF_STOCK", "PRICE_CHANGED", "MANDATE_INVALID", "MANDATE_EXPIRED",
                        "OVER_CAP", "SHOP_NOT_PERMITTED", "COUPON_INELIGIBLE",
-                       "IDEMPOTENT_REPLAY", "CAPABILITY_UNSUPPORTED"],
+                       "IDEMPOTENT_REPLAY", "CAPABILITY_UNSUPPORTED", "OFFER_INVALID"],
             "auth": {"type": "mandate", "algorithm": "HS256",
                      "required_claims": ["max_total", "max_per_txn", "shops", "exp"],
                      "presented_as": "Authorization: Mandate <jwt>"},
@@ -1074,5 +1140,14 @@ def create_app() -> FastAPI:
         for k in requested:
             answer.setdefault(k, False)
         return {"capabilities": answer}
+
+    # The ACP checkout surface (spec 6.7), reusing this shop's own primitives
+    # so both protocols price, gate and settle identically.
+    negotiation.mount(app, {"db": db, "shop_id": shop_id, "cfg": cfg,
+                            "json_body": json_body, "require_mandate": require_mandate})
+    acp.mount(app, {"db": db, "shop_id": shop_id, "caps": caps,
+                    "all_coupons": all_coupons, "coupon_engine": coupon_engine,
+                    "json_body": json_body, "idempotent": idempotent,
+                    "place_order": place_order, "settle_payment": settle_payment})
 
     return app

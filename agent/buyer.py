@@ -114,6 +114,144 @@ def discover(shops: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return found
 
 
+def negotiate_and_buy(shop: dict[str, Any], item_id: str, variant: str, qty: int,
+                      ceiling_paise: int, mandate_token: str,
+                      contact: str = "") -> dict[str, Any]:
+    """The buyer's half of a negotiation (phase 11). Deterministic, no LLM.
+
+    Strategy, in full, because a negotiator whose policy is hidden cannot be
+    audited by the shopper it spends for:
+
+      open at 80% of the ceiling  - never reveal the ceiling first
+      counter above the ceiling   - re-offer the ceiling, twice. The second
+                                    identical offer tells the shop this is the
+                                    end of the road, and its own deal-closing
+                                    rule takes a floor-clearing final offer
+                                    over a lost sale.
+      counter within the ceiling  - take it. The token is signed and expiring;
+                                    a better price is not worth losing this one.
+      refusal naming a floor      - re-offer the floor if the ceiling covers
+                                    it, else walk away. The shopper's ceiling
+                                    is a hard line, exactly like the mandate
+                                    caps: no deal is better than a bad deal.
+
+    Every step lands on the buyer's own chain under the negotiation id, so the
+    audit view can lay this record beside the shop's and show where - if
+    anywhere - the two stories part.
+    """
+    story: list[dict[str, Any]] = []
+    auth = {"Authorization": f"Mandate {mandate_token}"}
+    # The buyer mints the negotiation id and the shop honours it, so the very
+    # first chain entry - the opening - is already filed under the id both
+    # sides will use. Logged before the id existed, the opening fell out of
+    # the side-by-side record entirely.
+    neg_id = "neg_" + uuid.uuid4().hex[:12]
+
+    def tell(event: str, why: str, **data: Any) -> None:
+        story.append({"event": event, "why": why, **data})
+        chainlog.append("buyer", event, why, {"neg_id": neg_id, "shop_id": shop["shop_id"],
+                                              "product_id": item_id, "variant": variant,
+                                              "qty": qty, **data})
+
+    def offer(paise: int) -> dict[str, Any]:
+        with httpx.Client(base_url=shop["url"], timeout=10) as c:
+            r = c.post("/negotiate", headers=auth,
+                       json={"item_id": item_id, "variant": variant, "qty": qty,
+                             "offer_paise": paise, **({"neg_id": neg_id} if neg_id else {})})
+        r.raise_for_status()
+        return r.json()
+
+    def buy(token: dict[str, Any], unit_price: int) -> dict[str, Any]:
+        with httpx.Client(base_url=shop["url"], timeout=10) as c:
+            cart = c.post("/cart", json={}).json()["cart_id"]
+            c.post(f"/cart/{cart}/fulfil", headers=auth,
+                   json={"item_id": item_id, "variant": variant, "qty": qty, "mode": "add",
+                         "contact_ref": contact})
+            placed = c.post("/order", headers={**auth, "Idempotency-Key": f"neg-{neg_id}"},
+                            json={"cart_id": cart, "offer_token": token, "assisted": True,
+                                  "contact": contact})
+            placed.raise_for_status()
+            placed = placed.json()
+            c.post("/confirm-payment",
+                   json={"txn_ref": placed["txn_ref"],
+                         "razorpay_order_id": f"order_neg_{neg_id}",
+                         "payment_ref": f"pay_neg_{neg_id}"})
+        tell("negotiated_purchase",
+             f"bought {qty} x '{item_id}' at the negotiated {unit_price} paise/unit "
+             f"({placed['charge_amount']} paise total), order {placed['txn_ref']}",
+             txn_ref=placed["txn_ref"], amount_paise=placed["charge_amount"],
+             unit_price_paise=unit_price)
+        return placed
+
+    opening = max(1, int(ceiling_paise * 0.8))
+    price = opening
+    stood_ground = 0        # ceiling offers made; two identical ones close a deal
+    tell("negotiation_opened",
+         f"opening at {opening} paise/unit for {qty} x '{item_id}' at {shop['shop_id']} "
+         f"(shopper ceiling {ceiling_paise} paise/unit stays private)",
+         offer_paise=opening, ceiling_paise=ceiling_paise)
+
+    outcome: dict[str, Any] = {}
+    for round_no in range(1, 6):
+        answer = offer(price)
+        decision = answer["decision"]
+        if decision == "accepted":
+            unit = int(answer["unit_price_paise"])
+            tell("negotiation_agreed",
+                 f"round {round_no}: shop accepted {unit} paise/unit - {answer['why']}",
+                 unit_price_paise=unit, round=round_no)
+            placed = buy(answer["offer_token"], unit)
+            outcome = {"outcome": "bought", "unit_price_paise": unit,
+                       "txn_ref": placed["txn_ref"], "charge_amount": placed["charge_amount"]}
+            break
+        if decision == "counter":
+            counter = int(answer["unit_price_paise"])
+            tell("negotiation_counter_received",
+                 f"round {round_no}: shop countered at {counter} paise/unit "
+                 f"(list {answer['list_paise']})", counter_paise=counter, round=round_no)
+            if counter <= ceiling_paise:
+                unit = counter
+                tell("negotiation_agreed",
+                     f"round {round_no}: counter {counter} is within the ceiling "
+                     f"{ceiling_paise}; taking the signed offer", unit_price_paise=unit,
+                     round=round_no)
+                placed = buy(answer["offer_token"], unit)
+                outcome = {"outcome": "bought", "unit_price_paise": unit,
+                           "txn_ref": placed["txn_ref"],
+                           "charge_amount": placed["charge_amount"]}
+                break
+            if stood_ground >= 2:
+                # The ceiling was offered twice and the shop still wants more.
+                tell("negotiation_walked",
+                     f"round {round_no}: shop held at {counter}, above the ceiling "
+                     f"{ceiling_paise}; walking away - no deal beats a bad deal",
+                     counter_paise=counter)
+                outcome = {"outcome": "walked", "shop_final_paise": counter}
+                break
+            price = ceiling_paise       # insist: the same number, twice, means it
+            stood_ground += 1
+            continue
+        # refused
+        floor = (answer.get("floor") or {}).get("minimum_unit_paise", 0)
+        tell("negotiation_refused_by_shop",
+             f"round {round_no}: refused - {answer['why']}", floor_paise=floor,
+             round=round_no)
+        if floor and floor <= ceiling_paise and price < floor:
+            price = floor
+            continue
+        tell("negotiation_walked",
+             f"round {round_no}: the floor ({floor}) is above the ceiling "
+             f"({ceiling_paise}); walking away", floor_paise=floor)
+        outcome = {"outcome": "walked", "shop_floor_paise": floor}
+        break
+    else:
+        outcome = {"outcome": "walked", "why": "no agreement within four rounds"}
+
+    return {"neg_id": neg_id, "shop_id": shop["shop_id"], "item_id": item_id,
+            "variant": variant, "qty": qty, "ceiling_paise": ceiling_paise,
+            "story": story, **outcome}
+
+
 def _variant_for(product: dict[str, Any], size: str | None) -> tuple[str, int, str | None]:
     """(label, stock, restock_date) for the wanted size, or the best available."""
     variants = product.get("variants") or []

@@ -143,6 +143,30 @@ class ShopDB:
                 "  code TEXT PRIMARY KEY, coupon TEXT NOT NULL,"
                 "  expires_ts REAL NOT NULL, created_ts REAL NOT NULL)"
             )
+            # Negotiation rounds (phase 11): what each buyer last offered,
+            # so "they held their ground" is a fact the shop can check rather
+            # than something the buyer asserts. Redeemed tokens are recorded
+            # so a signed price is spendable exactly once.
+            c.execute(
+                "CREATE TABLE IF NOT EXISTS negotiations ("
+                "  neg_id TEXT NOT NULL, item_id TEXT NOT NULL, variant TEXT NOT NULL,"
+                "  qty INTEGER NOT NULL, offer_paise INTEGER NOT NULL, ts REAL NOT NULL)"
+            )
+            c.execute(
+                "CREATE TABLE IF NOT EXISTS redeemed_offers ("
+                "  sig TEXT PRIMARY KEY, neg_id TEXT NOT NULL, txn_ref TEXT NOT NULL,"
+                "  ts REAL NOT NULL)"
+            )
+            # ACP checkout sessions (spec 6.7). A session is a priced view over
+            # a cart, not a hold on stock - stock moves at /order exactly as it
+            # does natively, so the adapter cannot become a second door.
+            c.execute(
+                "CREATE TABLE IF NOT EXISTS acp_sessions ("
+                "  session_id TEXT PRIMARY KEY, cart_id TEXT NOT NULL,"
+                "  status TEXT NOT NULL, buyer TEXT NOT NULL DEFAULT '{}',"
+                "  order_txn TEXT NOT NULL DEFAULT '',"
+                "  created_ts REAL NOT NULL, updated_ts REAL NOT NULL)"
+            )
 
     def _conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.path, timeout=10)
@@ -308,6 +332,55 @@ class ShopDB:
         if converted:
             self.mark_order_rescued(order["txn_ref"])
         return converted
+
+    def negotiation_round(self, neg_id: str) -> dict[str, Any] | None:
+        """The most recent prior round of this negotiation, if any."""
+        with self._conn() as c:
+            row = c.execute("SELECT * FROM negotiations WHERE neg_id = ?"
+                            " ORDER BY ts DESC LIMIT 1", (neg_id,)).fetchone()
+        return dict(row) if row else None
+
+    def record_negotiation_round(self, neg_id: str, item_id: str, variant: str,
+                                 qty: int, offer_paise: int) -> None:
+        with self._conn() as c:
+            c.execute("INSERT INTO negotiations (neg_id, item_id, variant, qty, offer_paise,"
+                      " ts) VALUES (?, ?, ?, ?, ?, ?)",
+                      (neg_id, item_id, variant, qty, offer_paise, time.time()))
+
+    def redeem_offer(self, sig: str, neg_id: str, txn_ref: str) -> bool:
+        """True the first time; False if this signed price was already spent."""
+        with self._conn() as c:
+            try:
+                c.execute("INSERT INTO redeemed_offers (sig, neg_id, txn_ref, ts)"
+                          " VALUES (?, ?, ?, ?)", (sig, neg_id, txn_ref, time.time()))
+            except sqlite3.IntegrityError:
+                return False
+        return True
+
+    def acp_create_session(self, session_id: str, cart_id: str) -> None:
+        with self._conn() as c:
+            c.execute("INSERT INTO acp_sessions (session_id, cart_id, status, created_ts,"
+                      " updated_ts) VALUES (?, ?, 'not_ready_for_payment', ?, ?)",
+                      (session_id, cart_id, time.time(), time.time()))
+
+    def acp_session(self, session_id: str) -> dict[str, Any] | None:
+        with self._conn() as c:
+            row = c.execute("SELECT * FROM acp_sessions WHERE session_id = ?",
+                            (session_id,)).fetchone()
+        return dict(row) if row else None
+
+    def acp_update_session(self, session_id: str, *, status: str | None = None,
+                           buyer: str | None = None, order_txn: str | None = None) -> None:
+        sets, params = ["updated_ts = ?"], [time.time()]
+        if status is not None:
+            sets.append("status = ?"); params.append(status)
+        if buyer is not None:
+            sets.append("buyer = ?"); params.append(buyer)
+        if order_txn is not None:
+            sets.append("order_txn = ?"); params.append(order_txn)
+        params.append(session_id)
+        with self._conn() as c:
+            c.execute(f"UPDATE acp_sessions SET {', '.join(sets)} WHERE session_id = ?", params)
 
     def mark_order_rescued(self, txn_ref: str) -> None:
         """One flag, one meaning: this order recovered a sale the shop had
