@@ -364,6 +364,63 @@ Instead: FreshKart and Loomcraft get **distinct** identities — different palet
 | 9 | Deploy, polish per §11, two clean full dry runs, README + architecture diagram | Entire §15 demo path runs twice with zero terminal use |
 | 10 | Record the 5-minute video, write the final README, submit. *(WhatsApp only if everything above is done and dry-run clean)* | Submitted |
 
+**Phase 13 as built (2026-08-27).** Acceptance met live on both halves.
+
+- `lab/determinism_check.py`: one sentence ("add 2 packs of filter coffee")
+  through the live widget twice - once with stock, once after the shelf was
+  emptied by REAL mandated orders, nothing mocked. World A: search -> add ->
+  coupon near-miss + cross-sell in the reply. World B: search -> STOP - the
+  model read "out of stock" in the search result and chose not to attempt the
+  add at all. Different tool count, different reply, same code. The script
+  exits non-zero if the traces come out identical, because identical would
+  mean it is a script.
+- `plain_display()` in agent/tools.py translates every tool call into a
+  sentence server-side (the same format-once rule as money):
+  `update_qty(line_id="line_625a4a05", qty=1)` -> "Changed a basket line to
+  1 unit(s)". A tool the map has never met falls back to the technical call
+  rather than inventing a sentence. Tests pin every registered tool to a
+  readable sentence with ids humanized, never exposed.
+- The Trace tab shows the sentence first, the model's reason under it, and
+  the exact call in small mono type for the engineer - verified rendering in
+  the browser with both determinism worlds on screen side by side.
+
+355 tests passing. Committing is the operator's call, per standing instruction.
+
+**Full-check addendum (2026-08-27, pre-phase-14).** A clean-reset, all-surface
+verification pass found one real defect: the growth agent could end a run with
+a SUPPORTED simulation and no proposal card, describing the proposal in prose
+instead - `no_action` on the console while the summary claimed otherwise. A
+third code gate now pushes once ("write the card or state the discard"); tests
+pin both outcomes. Everything else passed: manifests (checkout + negotiation +
+suggestions declared at both shops), chains verify, Revenue Lab positive lift
+from real orders, four-state ledger with actions, cross-sell speaking with
+support and silent without, third-party buyer paid at both shops through ACP
+and recovered from out-of-stock by reserving, all three negotiation arcs,
+determinism check, plain-language traces, and a live widget turn carrying
+coupon + basket-count cross-sell. 357 tests.
+
+**Phase 12 as built (2026-08-27).** Acceptance met on all three counts, live.
+
+- `db.co_purchase()` counts pairs across this shop's own PAID orders only -
+  never modelled, never cross-shop (spec 14), a basket counts once per pair,
+  and a quote nobody paid for feeds nothing.
+- `GET /cart/{cart_id}/suggestions`: support floor of 3 baskets stated in the
+  response, at most 2 suggestions, each carrying `baskets_together` and a
+  "bought together in N past baskets" sentence; items already in the cart and
+  items out of stock are never suggested; a thin-history shop returns an empty
+  list with a note saying why, rather than a guess.
+- The agent's `add_to_cart` result carries at most ONE suggestion as a
+  ready-made sentence (`also_bought.tell_the_shopper`), the same
+  policy-in-code pattern as `savings`; the prompt requires the basket count in
+  the phrasing (the first live run dropped it - "the count is the evidence")
+  and forbids suggesting from the model's own knowledge when the block is
+  absent. Say-once rule extended to cover it.
+- Live: "Shoppers who bought this also picked up Raw Forest Honey (500 g)
+  (₹219.00) in 4 past baskets" - surfaced by the widget at the moment of the
+  add, from 22 real paid baskets; an unpaired item returns silence.
+
+353 tests passing. Committing is the operator's call, per standing instruction.
+
 **Phase 11 as built (2026-08-27).** Acceptance met on all three counts, live.
 
 - `shop/negotiation.py`: `POST /negotiate` under the same mandate as ordering.
@@ -539,8 +596,8 @@ Everything else is upside.
 | **9 — DONE 2026-08-27** | **Truth in the numbers.** Settle the demand ledger when stock returns and the wanting party is told. `reset_demo.ps1`, then a scripted paired seed: N baskets bought plainly, N through the agent claiming a coupon, taking a near-miss and rescuing a stock-out. | Fixes the missing revenue number and a ledger that never settles and so misleads both the console and the growth agent | Revenue Lab shows a **positive measured lift** computed only from real paid orders; the console's Lost demand table shows only demand still outstanding; the growth agent's read of "lost demand" matches what is actually still lost | 0.5d |
 | **10 — DONE 2026-08-27** | **ACP adapter** (was 8d). Read the live published ACP spec and its OpenAPI first — take no endpoint shape or version string from this document or from memory. Checkout-session surface over the existing cart/order/confirm. Manifest declares it alongside the native block. | Closes the "why now" hole the brief names explicitly | The SAME unmodified `third_party_buyer.py` completes a purchase at **both** shops through the ACP surface, having negotiated capabilities first, and recovers from `OUT_OF_STOCK` by reserving | 1d |
 | **11 — DONE 2026-08-27** | **Agent-to-agent negotiation.** The buyer presents a mandate and a ceiling; the shop's growth agent answers with `simulate_discount` bounded by the margin floor — accept, counter, or refuse with a reason. Counter-offers are signed and time-boxed. Both sides log to their own chain. | **The standout.** The brief calls agent-to-agent commerce "the open problem of the year"; this is two autonomous parties with opposed interests, bounded by policy in code | A buyer whose ceiling is under list price receives a bounded counter-offer it can rank; a ceiling below the margin floor is **refused with the reason**, never quietly accepted; the dispute view shows both sides' record of the same negotiation | 1d |
-| **12** | **Cross-sell from real baskets.** Co-purchase computed from paid `line_items` across both shops' own orders, with a support count. Surfaced by the widget at the moment it helps, never as a banner. | Fixes the weakest of the four named directions | Every suggestion states how many past baskets it rests on; nothing is suggested below a stated support floor; suggestions are absent on a shop with too little history rather than invented | 0.5d |
-| **13** | **`lab/determinism_check.py`** (was 8c) + Trace tab in plain language. | Amplifies the "not a script" proof; the Trace tab currently prints `update_qty(line_id="line_625a4a05", qty=1)`, which is readable to an engineer and to nobody else | Same sentence, two stock states, two visibly different traces side by side; the Trace tab reads as sentences a merchant understands | 0.5d |
+| **12 — DONE 2026-08-27** | **Cross-sell from real baskets.** Co-purchase computed from paid `line_items` across both shops' own orders, with a support count. Surfaced by the widget at the moment it helps, never as a banner. | Fixes the weakest of the four named directions | Every suggestion states how many past baskets it rests on; nothing is suggested below a stated support floor; suggestions are absent on a shop with too little history rather than invented | 0.5d |
+| **13 — DONE 2026-08-27** | **`lab/determinism_check.py`** (was 8c) + Trace tab in plain language. | Amplifies the "not a script" proof; the Trace tab currently prints `update_qty(line_id="line_625a4a05", qty=1)`, which is readable to an engineer and to nobody else | Same sentence, two stock states, two visibly different traces side by side; the Trace tab reads as sentences a merchant understands | 0.5d |
 | **14** | **Submission.** Two clean full dry runs with zero terminal use. README with the architecture diagram and the honest claims table from §13. Five-minute video. | Non-negotiable | The §15 demo path runs twice, unattended, without a terminal; the video is recorded and the repo is submitted | 1.5d |
 
 **Cut order (top first):** cross-sell (12) → the plain-language Trace tab half of 13 → the second dry run. **Never cut:** phase 9 and phase 14.

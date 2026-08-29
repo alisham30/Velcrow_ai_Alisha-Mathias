@@ -333,6 +333,32 @@ class ShopDB:
             self.mark_order_rescued(order["txn_ref"])
         return converted
 
+    def co_purchase(self, item_id: str) -> dict[str, int]:
+        """How many PAID baskets held `item_id` together with each other item.
+
+        Computed fresh from this shop's own orders - never modelled, never
+        seeded with invented affinities, and never reaching across to the
+        other shop (spec 14: no mixing of merchants' data; each shop's
+        suggestions rest on its own sales alone). A basket counts once per
+        pair however many units it held.
+        """
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT line_items FROM orders WHERE status = 'paid'").fetchall()
+        together: dict[str, int] = {}
+        for r in rows:
+            items = {li["item_id"] for li in json.loads(r["line_items"])}
+            if item_id in items:
+                for other in items - {item_id}:
+                    together[other] = together.get(other, 0) + 1
+        return together
+
+    def paid_basket_count(self) -> int:
+        with self._conn() as c:
+            row = c.execute(
+                "SELECT COUNT(*) AS n FROM orders WHERE status = 'paid'").fetchone()
+        return int(row["n"])
+
     def negotiation_round(self, neg_id: str) -> dict[str, Any] | None:
         """The most recent prior round of this negotiation, if any."""
         with self._conn() as c:

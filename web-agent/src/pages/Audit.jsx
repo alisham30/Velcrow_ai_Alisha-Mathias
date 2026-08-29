@@ -197,12 +197,14 @@ function Trace() {
                   key={s.i}
                   className={`border-l-2 pl-3 ${s.ok ? "border-ink" : "border-danger"}`}
                 >
-                  <p className="font-mono text-[11px] text-ink">
-                    {s.tool}({Object.entries(s.args || {})
-                      .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
-                      .join(", ")})
-                  </p>
+                  <p className="text-sm text-ink">{s.plain || s.tool}</p>
                   <p className="mt-0.5 text-xs text-muted">{s.why}</p>
+                  <p className="mt-0.5 font-mono text-[10px] text-muted/70">
+                    {s.call ||
+                      `${s.tool}(${Object.entries(s.args || {})
+                        .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+                        .join(", ")})`}
+                  </p>
                 </li>
               ))}
               {t.steps.length === 0 && (

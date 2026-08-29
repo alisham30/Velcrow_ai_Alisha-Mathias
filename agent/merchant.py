@@ -235,6 +235,7 @@ def simulate_restock(ctx: dict[str, Any], item_id: str, qty: int, variant: str =
 # then wrote a second one for the same item after being sent back. A rule that
 # guards the merchant's cash belongs in code.
 NEEDS_SIMULATION = {"restock": "simulate_restock", "campaign": "simulate_discount"}
+NEEDS_SIMULATION_KIND = {v: k for k, v in NEEDS_SIMULATION.items()}
 
 
 def create_proposal(ctx: dict[str, Any], kind: str, payload: dict[str, Any],
@@ -382,6 +383,19 @@ def _unsimulated_outstanding(ctx: dict[str, Any], run: dict[str, Any]) -> dict[s
     return max(open_rows, key=lambda r: r["outstanding_units"])
 
 
+def _supported_unproposed(ctx: dict[str, Any]) -> tuple[str, str] | None:
+    """The first simulation that said 'worth doing' and produced no card."""
+    proposed = {(p["kind"], str(p.get("payload", {}).get("item_id") or ""))
+                for p in ctx.get("proposed", [])}
+    for (tool, item), sim in ctx.get("simulated", {}).items():
+        kind = NEEDS_SIMULATION_KIND.get(tool)
+        if not kind or not sim.get("worth_doing"):
+            continue
+        if (kind, item) not in proposed:
+            return item, str(sim.get("verdict", ""))[:160]
+    return None
+
+
 def _emit(run: dict[str, Any], kind: str, **data: Any) -> None:
     run["events"].append({"seq": len(run["events"]), "kind": kind, "ts": time.time(), **data})
 
@@ -411,6 +425,7 @@ def run_once(shop: dict[str, Any], seed: int | None = None) -> dict[str, Any]:
     ]
 
     sent_back = False
+    pushed_to_propose = False
     for round_no in range(MAX_ROUNDS):
         try:
             step = llm.plan(messages, tools=MERCHANT_TOOLS)
@@ -431,6 +446,28 @@ def run_once(shop: dict[str, Any], seed: int | None = None) -> dict[str, Any]:
             # opportunity, and proposed nothing. Asking more firmly is not a
             # fix. The obligation is checked here instead, and an unsupported
             # "I propose nothing" is sent back once with the row it ignored.
+            # A supported simulation must become a CARD or an explicit
+            # discard - never prose. The model simulated the ghee restock,
+            # the simulation said worth doing, and it then wrote "I propose
+            # to restock" in its summary without ever calling
+            # create_proposal: the console showed nothing while the text
+            # claimed a proposal. A proposal that exists only as prose is
+            # indistinguishable from no proposal, so the gap is closed here.
+            hanging = _supported_unproposed(ctx)
+            if hanging and not pushed_to_propose:
+                pushed_to_propose = True
+                item, verdict = hanging
+                _emit(run, "sent_back", why=(
+                    f"concluded with a supported simulation for '{item}' and no proposal: "
+                    f"{verdict}"))
+                messages.append({"role": "assistant", "content": step["content"] or None})
+                messages.append({"role": "user", "content": (
+                    f"You simulated '{item}' and the simulation supported it: {verdict}. "
+                    "Either write it up with create_proposal NOW, or state in one sentence "
+                    "why you are discarding a supported idea. Describing a proposal in "
+                    "prose without creating the card leaves the merchant nothing to act "
+                    "on.")})
+                continue
             owed = _unsimulated_outstanding(ctx, run)
             if owed and not sent_back:
                 sent_back = True

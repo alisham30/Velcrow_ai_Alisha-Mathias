@@ -274,3 +274,32 @@ def test_the_lab_is_repeatable(audit, freshkart):
     a = audit.get("/audit/revenue-lab").json()
     b = audit.get("/audit/revenue-lab").json()
     assert a["assisted"]["revenue"] == b["assisted"]["revenue"]
+
+
+# -- phase 13: the trace reads as sentences ----------------------------------
+
+def test_every_registered_tool_has_a_plain_sentence():
+    """The Trace tab's evidence is worthless to the person it must convince if
+    they cannot read it. Every tool the model can call must translate, and a
+    tool this map has never met must fall back to the technical call rather
+    than crash or lie."""
+    from agent import tools
+
+    for name in tools.REGISTRY:
+        sentence = tools.plain_display(name, {"item_id": "toor-dal-1kg", "qty": 2,
+                                              "query": "dal", "line_id": "line_x"})
+        assert sentence and "(" not in sentence.split(" ")[0], (
+            f"{name} renders as a function call, not a sentence: {sentence!r}")
+        assert "line_625a" not in sentence and "item_id=" not in sentence
+
+    unknown = tools.plain_display("brand_new_tool", {"x": 1})
+    assert unknown.startswith("brand_new_tool(")
+
+
+def test_plain_sentences_humanize_ids_not_expose_them():
+    from agent import tools
+
+    s = tools.plain_display("add_to_cart", {"item_id": "toor-dal-1kg", "qty": 2})
+    assert "toor dal 1kg" in s and "toor-dal-1kg" not in s
+    s = tools.plain_display("update_qty", {"line_id": "line_625a4a05", "qty": 1})
+    assert "625a" not in s

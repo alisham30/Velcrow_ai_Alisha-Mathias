@@ -454,3 +454,51 @@ def test_a_restock_is_not_proposed_for_stock_already_on_the_shelf(loom):
     assert sim["worth_doing"] is False
     assert sim["recoverable_by_telling_them"] > 0
     assert "ALREADY on the shelf" in sim["verdict"]
+
+
+def test_a_supported_simulation_cannot_end_as_prose(loom, monkeypatch):
+    """Found in the phase-13 full check: the model simulated a restock, the
+    simulation said worth doing, and it then wrote 'I propose to restock' in
+    its SUMMARY without ever calling create_proposal - the console showed
+    nothing while the text claimed a proposal. A supported simulation must
+    become a card or an explicit discard, and the push is code."""
+    _refuse_demand(loom["client"], "kurti-indigo-cotton", "S", 3)
+    monkeypatch.setattr(llm, "plan", _scripted(
+        {"content": "", "tool_calls": [{"id": "s", "name": "simulate_restock",
+                                        "args": {"item_id": "kurti-indigo-cotton",
+                                                 "variant": "S", "qty": 3,
+                                                 "reason": "testing the hole"}}]},
+        {"content": "I propose restocking the kurti. It is clearly worth it.",
+         "tool_calls": []},                                   # prose, no card
+        {"content": "", "tool_calls": [{"id": "p", "name": "create_proposal",
+                                        "args": {"kind": "restock",
+                                                 "payload": {"item_id": "kurti-indigo-cotton",
+                                                             "variant": "S", "qty": 3},
+                                                 "rationale": "recovers refused demand",
+                                                 "reason": "pushed to write the card"}}]},
+        {"content": "Proposed.", "tool_calls": []},
+    ))
+    run = merchant.run_once(loom)
+    assert run["outcome"] == "proposed"
+    assert len(run["proposals"]) == 1
+    pushes = [e for e in run["events"] if e["kind"] == "sent_back"]
+    assert any("no proposal" in e["why"] for e in pushes)
+
+
+def test_an_explicit_discard_after_the_push_stands(loom, monkeypatch):
+    """The push happens once. A model that then states its discard keeps its
+    answer - the gate forces the choice into the open, not a particular one."""
+    _refuse_demand(loom["client"], "kurti-indigo-cotton", "S", 3)
+    monkeypatch.setattr(llm, "plan", _scripted(
+        {"content": "", "tool_calls": [{"id": "s", "name": "simulate_restock",
+                                        "args": {"item_id": "kurti-indigo-cotton",
+                                                 "variant": "S", "qty": 3,
+                                                 "reason": "testing"}}]},
+        {"content": "Worth doing on paper.", "tool_calls": []},
+        {"content": "Discarding: the supplier lead time makes this moot.",
+         "tool_calls": []},
+    ))
+    run = merchant.run_once(loom)
+    assert run["outcome"] == "no_action"
+    assert "Discarding" in run["summary"]
+    assert len([e for e in run["events"] if e["kind"] == "sent_back"]) == 1

@@ -108,6 +108,39 @@ def _savings(ctx: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _also_bought(ctx: dict[str, Any]) -> dict[str, Any]:
+    """What this shop's own paid baskets say goes with the cart (phase 12).
+
+    Attached to add_to_cart results the same way savings are: the shopper never
+    thinks to ask, so the answer arrives with the tool result or not at all.
+    The counting, the support floor and the exclusions are the SHOP's code -
+    the model receives at most one suggestion with the basket count already in
+    a sentence, and a shop with thin history sends nothing, so there is nothing
+    for the model to invent. A suggestion lookup must never break an add.
+    """
+    try:
+        with _client(ctx["shop_url"]) as c:
+            resp = c.get(f"/cart/{ctx['cart_id']}/suggestions")
+        if resp.status_code != 200:
+            return {}
+        result = resp.json()
+    except Exception:
+        return {}
+    picks = result.get("suggestions") or []
+    if not picks:
+        return {}
+    top = picks[0]
+    return {
+        "item_id": top["item_id"], "name": top["name"],
+        "price_display": _rupees(top["price_paise"]),
+        "baskets_together": top["baskets_together"],
+        "tell_the_shopper": (
+            f"shoppers here who bought this also picked up {top['name']} "
+            f"({_rupees(top['price_paise'])}) in {top['baskets_together']} past baskets - "
+            "mention it once, take no for an answer"),
+    }
+
+
 def _availability(stock: int) -> str:
     if stock <= 0:
         return "out of stock"
@@ -259,6 +292,9 @@ def add_to_cart(ctx: dict[str, Any], item_id: str, qty: int, variant: str | None
     summary["added"] = {"item_id": item_id, "variant": variant or "",
                         "qty": result["added"], "requested": qty}
     summary["savings"] = _savings(ctx)
+    also = _also_bought(ctx)
+    if also:
+        summary["also_bought"] = also
 
     if result["shortfall"]:
         short = result["shortfall"]
@@ -620,6 +656,50 @@ def summarise(name: str, result: dict[str, Any]) -> str:
         return (f"quote {result['txn_ref']} for {result['charge_display']}, "
                 "awaiting the shopper's approval")
     return "ok"
+
+
+def _humanize(slug: str) -> str:
+    """'toor-dal-1kg' -> 'toor dal 1kg' - close enough for a shopkeeper, and
+    honest about being derived from the id rather than a name lookup."""
+    return str(slug).replace("-", " ").replace("_", " ").strip() or "an item"
+
+
+def plain_display(name: str, args: dict[str, Any]) -> str:
+    """The same tool call as a sentence a merchant understands (spec 16.13).
+
+    The Trace tab used to print `update_qty(line_id="line_625a4a05", qty=1)`,
+    which is readable to an engineer and to nobody else. The evidence that the
+    agent chose its own actions is worthless to the person it is meant to
+    convince if they cannot read it, so the translation is done HERE, server
+    side, where a test can assert every tool has one - not in the widget, and
+    never by the model.
+    """
+    a = args or {}
+    qty = a.get("qty")
+    if name == "search_catalog":
+        want = a.get("query", "")
+        cap = a.get("max_price_paise")
+        return (f'Searched the shelves for "{want}"'
+                + (f" under {_rupees(int(cap))}" if cap else ""))
+    if name == "add_to_cart":
+        item = _humanize(a.get("item_id", ""))
+        v = f" ({a['variant']})" if a.get("variant") else ""
+        return f"Put {qty or 1} x {item}{v} in the basket"
+    if name == "update_qty":
+        return f"Changed a basket line to {qty} unit(s)"
+    if name == "remove_line":
+        return "Took a line out of the basket"
+    if name == "view_cart":
+        return "Read the basket back before answering"
+    if name == "apply_best_coupons":
+        return "Checked every coupon this shop runs against the basket"
+    if name == "reorder_last":
+        return "Priced the shopper's last order again at today's prices"
+    if name == "identify_shopper":
+        return "Looked up the shopper's history from the contact they gave"
+    if name == "start_checkout":
+        return "Opened the approval gate - payment now waits on the shopper"
+    return call_display(name, a)    # a tool this map has never met stays honest
 
 
 def call_display(name: str, args: dict[str, Any]) -> str:

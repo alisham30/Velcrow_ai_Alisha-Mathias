@@ -224,6 +224,55 @@ def create_app() -> FastAPI:
             raise errors.BadRequest(f"unknown cart op '{op}' (use add/update/remove)")
         return cart_view(cart_id)
 
+    # How many past PAID baskets a pair must share before this shop will say
+    # "people also bought". Below the floor, a co-occurrence is coincidence
+    # wearing a trend's clothes - two people once bought socks with a saree,
+    # and repeating that as advice would be the shop inventing a pattern.
+    SUGGESTION_SUPPORT_FLOOR = 3
+    SUGGESTION_LIMIT = 2
+
+    @app.get("/cart/{cart_id}/suggestions")
+    def cart_suggestions(cart_id: str) -> dict[str, Any]:
+        """Cross-sell from this shop's own sales (spec 16, phase 12).
+
+        Every suggestion carries the number of real baskets it rests on, and
+        a shop with too little history says so instead of guessing. The floor
+        and the counting are code; no model chooses what to recommend.
+        """
+        view = cart_view(cart_id)
+        in_cart = {l["item_id"] for l in view["items"]}
+        counts: dict[str, int] = {}
+        for line_item in in_cart:
+            for other, n in db.co_purchase(line_item).items():
+                counts[other] = max(counts.get(other, 0), n)
+
+        suggestions = []
+        for other, n in sorted(counts.items(), key=lambda kv: -kv[1]):
+            if n < SUGGESTION_SUPPORT_FLOOR or other in in_cart:
+                continue
+            p = db.product(other)
+            if p is None:
+                continue
+            stock_row = db.stock_row(other, "") if not p.get("variants") else None
+            if stock_row is not None and stock_row[0] <= 0:
+                continue        # never recommend what cannot be bought
+            suggestions.append({
+                "item_id": other, "name": p["name"],
+                "price_paise": p["price_paise"],
+                "baskets_together": n,
+                "based_on": f"bought together in {n} past baskets at this shop",
+            })
+            if len(suggestions) >= SUGGESTION_LIMIT:
+                break
+
+        return {"cart_id": cart_id, "suggestions": suggestions,
+                "support_floor": SUGGESTION_SUPPORT_FLOOR,
+                "paid_baskets_considered": db.paid_basket_count(),
+                "note": ("suggestions rest on this shop's own paid baskets only; "
+                         f"pairs seen fewer than {SUGGESTION_SUPPORT_FLOOR} times are "
+                         "not reported, and thin history returns none rather than "
+                         "a guess")}
+
     @app.post("/cart/{cart_id}/coupons")
     async def cart_coupons(cart_id: str, request: Request) -> dict[str, Any]:
         body = await json_body(request)
@@ -1102,6 +1151,7 @@ def create_app() -> FastAPI:
                 "confirm": "POST /confirm-payment",
                 "confirm_body": {"txn_ref": "<txn_ref>", "razorpay_order_id": "<id>",
                                  "payment_ref": "<ref>"},
+                "suggestions": "GET /cart/{cart_id}/suggestions",
                 "reserve": "POST /reserve" if caps.get("reservations") else None,
                 "reserve_body": ({"item_id": "<id>", "variant": "<label>", "qty": "<int>",
                                   "contact_ref": "<how to reach the buyer>"}

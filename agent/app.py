@@ -26,7 +26,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
-from agent import buyer, llm, merchant, runtime
+from agent import buyer, llm, merchant, runtime, tools
 from common import approval, bandit, chainlog, errors, mandate, money, trust, wallet
 
 # The merchants that have installed the widget. data-shop on the script tag
@@ -749,6 +749,12 @@ def create_app() -> FastAPI:
                     "args": e["data"].get("args", {}), "ok": e["data"].get("ok"),
                     "latency_ms": e["data"].get("latency_ms"),
                     "why": e["why"],
+                    # The sentence a merchant reads; the technical call stays
+                    # beside it for the engineer (spec 16.13).
+                    "plain": tools.plain_display(e["data"].get("tool"),
+                                                 e["data"].get("args", {})),
+                    "call": tools.call_display(e["data"].get("tool"),
+                                               e["data"].get("args", {})),
                 })
         ordered = sorted(turns.values(), key=lambda t: t["ts"], reverse=True)
         return {"turns": [t for t in ordered if t["asked"]][:limit]}
