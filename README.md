@@ -14,55 +14,35 @@ The result runs end to end today: a shopper is refused for stock, the shortfall 
 
 ```mermaid
 flowchart TB
-  subgraph T1["Tier 1 - People"]
-    SH["Shopper<br/>widget or WhatsApp, approves every payment"]
-    ME["Merchant<br/>decides every proposal"]
-    BU["Buyer with a goal<br/>states a budget, taps approve"]
-    ST["A stranger's AI<br/>reads one manifest and buys"]
+  subgraph T1["TIER 1 - PEOPLE (nothing below acts without one)"]
+    direction LR
+    SH["Shopper<br/>widget or WhatsApp"] ~~~ ME["Merchant<br/>decides proposals"] ~~~ BU["Buyer with a goal<br/>states a budget"] ~~~ ST["A stranger's AI<br/>reads one manifest"]
   end
 
-  subgraph T2["Tier 2 - Surfaces"]
-    F1["FreshKart storefront + widget"]
-    F2["Loomcraft storefront + widget"]
-    CO["Merchant consoles"]
-    BA["Buyer app + Audit room"]
-    WA["WhatsApp (Meta Cloud API)"]
+  subgraph T2["TIER 2 - SURFACES"]
+    direction LR
+    S1["FreshKart + widget<br/>:5173"] ~~~ S2["Loomcraft + widget<br/>:5174"] ~~~ S3["Consoles + Buyer app<br/>+ Audit  :5175"] ~~~ S4["WhatsApp<br/>Meta Cloud API"]
   end
 
-  subgraph T3["Tier 3 - The VelcrowAI layer (:8003)"]
-    ASST["Shopping assistant<br/>LLM + 9 tools"]
-    GROW["Growth agent<br/>LLM + 7 tools, hourly"]
-    ORCH["Orchestrator<br/>routes, schedules, logs handoffs"]
-    BYR["Buyer agent<br/>rules + trust ranking, zero LLM"]
-    OUTR["Outreach + webhook gate<br/>signed taps, say-once, OTP login"]
-    MAND["Mandate signer<br/>caps, shops, expiry, revocation"]
-    WLT["wallet.py<br/>5 checks - the ONLY door to money"]
+  subgraph T3["TIER 3 - THE VELCROWAI LAYER  :8003"]
+    direction LR
+    ORCH["Orchestrator<br/>routes between agents,<br/>wakes the unattended ones,<br/>chain-logs every handoff"] --> AG["The agents<br/>Shopping assistant (LLM, 9 tools)<br/>Growth agent (LLM, 7 tools, hourly)<br/>Buyer agent (rules + trust, zero LLM)<br/>Outreach (signed webhooks, say-once)"]
+    AG --> GATE["The gates<br/>Mandate signer: caps, shops, expiry<br/>Cart-bound approvals: exact amount<br/>wallet.py: 5 checks,<br/>the ONLY door to money"]
   end
 
-  subgraph T4["Tier 4 - The shops (:8001 / :8002)"]
-    SHOP["FreshKart API and Loomcraft API<br/>catalog, carts, coupons, demand ledger, reservations,<br/>negotiation policy, ACP checkout, manifest, order sources"]
+  subgraph T4["TIER 4 - THE SHOPS  :8001 / :8002 (never see each other)"]
+    SHOP["FreshKart API and Loomcraft API - all arithmetic happens here<br/>catalog | carts | coupon engine | demand ledger | reservations<br/>negotiation policy | ACP checkout | manifest | order sources"]
   end
 
-  subgraph T5["Tier 5 - Settlement and proof"]
-    RZP["Razorpay (test mode)"]
-    CHAIN["Three SHA-256 hash chains + audit room"]
+  subgraph T5["TIER 5 - SETTLEMENT AND PROOF"]
+    direction LR
+    RZP["Razorpay<br/>test mode"] ~~~ CHAIN["Three SHA-256 hash chains + audit room<br/>every action of every actor, tamper-evident"]
   end
 
-  T1 --> T2 --> T3
-  ASST --> SHOP
-  GROW --> SHOP
-  BYR --> SHOP
-  OUTR --> SHOP
-  ORCH --> ASST
-  ORCH --> BYR
-  ORCH --> GROW
-  WLT --> RZP
-  ASST -.-> WLT
-  BYR -.-> WLT
-  OUTR -.-> WLT
-  ST --> SHOP
-  T3 --> CHAIN
-  T4 --> CHAIN
+  T1 -->|"sentences, taps, decisions"| T2
+  T2 -->|"every request"| T3
+  T3 -->|"priced requests under a mandate"| T4
+  T4 -->|"money only through wallet.py"| T5
 ```
 
 Models think in tier 3, arithmetic lives in tier 4, money passes only through the wallet, and every actor's every action lands on a hash chain in tier 5.
