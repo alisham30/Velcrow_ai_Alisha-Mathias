@@ -20,6 +20,7 @@ import { brand } from "./brand.js";
 
 const REF_KEY = `velcrow-shopper-${brand.shopId}`;
 const CONTACT_KEY = `velcrow-contact-${brand.shopId}`;
+const VERIFIED_KEY = `velcrow-verified-${brand.shopId}`;
 
 function read(key) {
   try {
@@ -58,6 +59,7 @@ export const shopperKey = {
   forget() {
     try {
       localStorage.removeItem(CONTACT_KEY);
+      localStorage.removeItem(VERIFIED_KEY);
     } catch {
       /* nothing to forget */
     }
@@ -67,5 +69,16 @@ export const shopperKey = {
     const text = (contactText || "").trim();
     if (text) write(CONTACT_KEY, text);
     return text;
+  },
+
+  /** Whether THIS device proved ownership of the contact via WhatsApp OTP.
+   *  A display state, deliberately: verified or not, money still needs the
+   *  exact-amount approval through the wallet. */
+  verified() {
+    return read(VERIFIED_KEY) === "yes";
+  },
+
+  rememberVerified() {
+    write(VERIFIED_KEY, "yes");
   },
 };

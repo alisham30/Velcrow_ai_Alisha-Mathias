@@ -24,9 +24,9 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, StreamingResponse
 
-from agent import buyer, llm, merchant, runtime, tools
+from agent import buyer, llm, merchant, orchestrator, outreach, runtime, tools
 from common import approval, bandit, chainlog, errors, mandate, money, trust, wallet
 
 # The merchants that have installed the widget. data-shop on the script tag
@@ -139,6 +139,14 @@ def create_app() -> FastAPI:
         chainlog.append("buyer", "agent_turn_started",
                         f"shopper asked the agent at {installed['name']}: {message!r}",
                         {"run_id": run.run_id, "shop_id": installed["shop_id"], "cart_id": cart_id})
+        # Outreach bookkeeping: stamp the cart so a walked-away basket can be
+        # reminded about ONCE on WhatsApp. Never allowed to break a turn.
+        try:
+            outreach.record_cart_activity(installed["shop_id"], installed["url"], cart_id,
+                                          str(body.get("contact_key") or ""),
+                                          str(body.get("shopper_ref") or ""))
+        except Exception:
+            pass
         asyncio.create_task(runtime.run_turn(
             run, installed, cart_id, message, body.get("history") or [], claims,
             mandate_token=token, shopper_ref=str(body.get("shopper_ref") or ""),
@@ -228,6 +236,9 @@ def create_app() -> FastAPI:
             # notifies must not have the widget promise it reserved something.
             "held": bool(body.get("held", True)),
             "mandate_jti": jti,
+            # The basket this refusal came from, when the shop knows it - so
+            # outreach can offer to complete the whole basket, not one unit.
+            "cart_id": str(body.get("cart_id") or ""),
         })
         chainlog.append("buyer", "comeback_offered",
                         f"{body['product_name']} "
@@ -237,7 +248,17 @@ def create_app() -> FastAPI:
                         "Nothing is bought without the shopper's approval",
                         {"offer_id": offer["offer_id"], "res_id": body["res_id"],
                          "shop_id": body["shop_id"], "shopper_ref": shopper_ref, "jti": jti})
-        return {"offered": True, "offer_id": offer["offer_id"]}
+        # WhatsApp is additive transport: the in-widget offer above stands
+        # whether or not a message can be delivered.
+        messaged: dict[str, Any] = {"messaged": False, "why": "outreach unavailable"}
+        try:
+            messaged = outreach.on_restock_offer(offer)
+        except Exception as exc:
+            chainlog.append("buyer", "whatsapp_message_failed",
+                            f"restock offer {offer['offer_id']} could not be messaged: {exc}; "
+                            "the in-widget offer still stands",
+                            {"offer_id": offer["offer_id"]})
+        return {"offered": True, "offer_id": offer["offer_id"], "whatsapp": messaged}
 
     @app.get("/agent/offers")
     def agent_offers(shop: str = "grocery", shopper_ref: str = "",
@@ -259,6 +280,68 @@ def create_app() -> FastAPI:
                         f"at {offer['shop_id']}; nothing added, nothing charged",
                         {"offer_id": offer_id, "res_id": offer["res_id"]})
         return {"offer_id": offer_id, "declined": True}
+
+    # -- WhatsApp outreach (spec 16 addendum): the agent goes TO the shopper --
+
+    @app.get("/webhook/whatsapp")
+    def whatsapp_verify(request: Request) -> PlainTextResponse:
+        """Meta's one-time subscription handshake: echo the challenge only if
+        the verify token matches ours."""
+        q = request.query_params
+        return PlainTextResponse(outreach.verify_challenge(
+            q.get("hub.mode", ""), q.get("hub.verify_token", ""), q.get("hub.challenge", "")))
+
+    @app.post("/webhook/whatsapp")
+    async def whatsapp_webhook(request: Request) -> dict[str, Any]:
+        """Every inbound WhatsApp event. The signature gate is inside
+        handle_webhook: an unsigned or forged body does nothing at all."""
+        raw = await request.body()
+        return outreach.handle_webhook(raw, request.headers.get("x-hub-signature-256", ""))
+
+    @app.post("/auth/whatsapp/start")
+    async def wa_login_start(request: Request) -> dict[str, Any]:
+        """Phone in, six digits out on WhatsApp. Never a password."""
+        body = await json_body(request)
+        return outreach.start_login(str(body.get("contact") or ""))
+
+    @app.post("/auth/whatsapp/verify")
+    async def wa_login_verify(request: Request) -> dict[str, Any]:
+        """Code in, verified contact_key out. Wrong codes burn out in three."""
+        body = await json_body(request)
+        return outreach.verify_login(str(body.get("contact") or ""),
+                                     str(body.get("code") or ""))
+
+    @app.get("/orchestrator/status")
+    def orchestrator_status() -> dict[str, Any]:
+        """The agent fleet and its recent coordination: which agents exist,
+        what wakes each one, what each is forbidden, and the chain-logged
+        handoffs between them. The demo's answer to 'where is the
+        orchestration?'."""
+        return orchestrator.status()
+
+    @app.get("/outreach/basket")
+    def outreach_basket(contact_key: str = "", shop: str = "grocery") -> dict[str, Any]:
+        """One person, one basket: the cart the agent knows for this contact
+        at this shop, so the storefront can join it after login instead of
+        showing an empty rival."""
+        installed = INSTALLED_SHOPS.get(shop)
+        if installed is None or not contact_key:
+            return {"cart_id": ""}
+        return {"cart_id": outreach.active_cart(contact_key, installed["shop_id"])}
+
+    @app.get("/outreach/outbox")
+    def outreach_outbox(limit: int = 50) -> dict[str, Any]:
+        """Every message the agent sent (or honestly failed to send) on the
+        merchant's behalf, plus each offer's lifecycle - the merchant can read
+        every word."""
+        return {"status": outreach.status(), "outbox": outreach.outbox(limit),
+                "offers": outreach.offers(limit)}
+
+    @app.post("/outreach/sweep")
+    def outreach_sweep() -> dict[str, Any]:
+        """"Run now" for the abandoned-cart sweep - what the scheduler does on
+        its own; exposed so a demo need not wait for the interval."""
+        return {"sent": outreach.sweep_abandoned()}
 
     # -- consumer buyer agent (spec 8) --------------------------------------
 
@@ -392,6 +475,7 @@ def create_app() -> FastAPI:
                           "variant": chosen["variant"], "qty": 1}, timeout=15).raise_for_status()
         order = httpx.post(f"{chosen['shop_url']}/order",
                            json={"cart_id": cart["cart_id"], "assisted": True,
+                                 "source": "buyer_app",
                                  "shopper_ref": body.get("shopper_ref", "")},
                            headers={"Authorization": f"Mandate {state['mandate_token']}",
                                     "Idempotency-Key": f"buy-{run_id}-{chosen['option_id']}"},
@@ -923,10 +1007,8 @@ def create_app() -> FastAPI:
             from apscheduler.schedulers.background import BackgroundScheduler
 
             sched = BackgroundScheduler(daemon=True)
-            for installed in INSTALLED_SHOPS.values():
-                sched.add_job(merchant.run_once, "interval", hours=1, args=[installed],
-                              id=f"growth-{installed['shop_id']}", max_instances=1,
-                              coalesce=True)
+            orchestrator.register_schedules(sched, INSTALLED_SHOPS,
+                                            merchant.run_once, outreach.sweep_abandoned)
             sched.start()
             app.state.scheduler = sched
         except Exception:

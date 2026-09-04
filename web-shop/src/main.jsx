@@ -10,6 +10,7 @@ import Home from "./pages/Home.jsx";
 import Product from "./pages/Product.jsx";
 import Checkout from "./pages/Checkout.jsx";
 import Console from "./pages/Console.jsx";
+import Orders from "./pages/Orders.jsx";
 import "./index.css";
 
 // Each shop loads only its own typefaces, so the brands never share a face.
@@ -56,6 +57,7 @@ function App() {
           <Route path="/" element={<Storefront><Home /></Storefront>} />
           <Route path="/product/:id" element={<Storefront><Product /></Storefront>} />
           <Route path="/checkout" element={<Storefront><Checkout /></Storefront>} />
+          <Route path="/orders" element={<Storefront><Orders /></Storefront>} />
           <Route path="/console" element={<Backoffice><Console /></Backoffice>} />
         </Routes>
       </div>

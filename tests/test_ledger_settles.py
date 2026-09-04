@@ -268,3 +268,40 @@ def test_a_reservation_records_who_was_refused(loomcraft):
                if r["item_id"] == "kurti-indigo-cotton")
     assert row["state"] == "outstanding"
     assert row["outstanding_units"] == 1
+
+
+def test_a_basket_cannot_settle_its_own_shortfall(freshkart):
+    """Found live: wanting 21 with 18 on the shelf recorded a 3-unit refusal -
+    and paying for the 18 then marked that same refusal 'recovered', so the
+    restock found nobody to contact. The basket that PRODUCED a shortfall must
+    never be the basket that settles it; a later purchase still may."""
+    shopper, phone = "shp_self", "9821100000"
+    on_shelf = freshkart.get("/product/honey-500g").json()["stock"]
+    assert on_shelf > 0
+
+    cart = freshkart.post("/cart").json()["cart_id"]
+    split = freshkart.post(f"/cart/{cart}/fulfil", headers=_auth("freshkart"),
+                           json={"item_id": "honey-500g", "variant": "", "qty": on_shelf + 3,
+                                 "mode": "add", "shopper_ref": shopper,
+                                 "contact_ref": phone}).json()
+    assert split["added"] == on_shelf and split["shortfall"] == 3
+    _buy(freshkart, "freshkart", cart, shopper, phone)
+
+    # The 3-unit refusal must still be OPEN, not "recovered" by its own basket.
+    lost = freshkart.get("/merchant/demand-ledger").json()
+    row = next(r for r in lost["rows"] if r["item_id"] == "honey-500g")
+    assert row["outstanding_units"] == 3, row
+
+    # A restock now has an open refusal to serve (delivery of the callback is
+    # covered elsewhere; the agent is a dead port in this suite)...
+    freshkart.post("/admin/restock", json={"item_id": "honey-500g", "variant": "", "qty": 10})
+
+    # ...and a LATER basket of 3 genuinely recovers it.
+    cart2 = freshkart.post("/cart").json()["cart_id"]
+    freshkart.post(f"/cart/{cart2}/fulfil", headers=_auth("freshkart"),
+                   json={"item_id": "honey-500g", "variant": "", "qty": 3, "mode": "add",
+                         "shopper_ref": shopper, "contact_ref": phone})
+    _buy(freshkart, "freshkart", cart2, shopper, phone)
+    lost = freshkart.get("/merchant/demand-ledger").json()
+    row = next((r for r in lost["rows"] if r["item_id"] == "honey-500g"), None)
+    assert row is None or row["outstanding_units"] == 0, row

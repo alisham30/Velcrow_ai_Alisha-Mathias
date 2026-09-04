@@ -138,6 +138,19 @@ class ShopDB:
             if "converted_txn" not in dl_cols:
                 c.execute("ALTER TABLE demand_ledger ADD COLUMN converted_txn TEXT NOT NULL"
                           " DEFAULT ''")
+            # Which cart produced the refusal. Without it, paying for the 18
+            # you DID get settled the 3-shortfall born from that same basket -
+            # the purchase answered a refusal it had itself created, and the
+            # restock later found "nobody to contact" (found live, 2026-09-04).
+            if "cart_id" not in dl_cols:
+                c.execute("ALTER TABLE demand_ledger ADD COLUMN cart_id TEXT NOT NULL"
+                          " DEFAULT ''")
+            # Which surface the order came through (storefront, widget,
+            # whatsapp, acp) - the order-history page names it, because "you
+            # bought this over WhatsApp on Tuesday" is half the demo.
+            if "source" not in cols:
+                c.execute("ALTER TABLE orders ADD COLUMN source TEXT NOT NULL"
+                          " DEFAULT 'storefront'")
             c.execute(
                 "CREATE TABLE IF NOT EXISTS runtime_coupons ("
                 "  code TEXT PRIMARY KEY, coupon TEXT NOT NULL,"
@@ -282,19 +295,47 @@ class ShopDB:
     def create_order(self, cart_id: str, charge_amount: int, line_items: list[dict[str, Any]],
                      coupon: dict[str, Any], mandate_jti: str, shopper_ref: str = "",
                      contact_key: str = "", contact_ref: str = "",
-                     assisted: bool = False) -> dict[str, Any]:
+                     assisted: bool = False, source: str = "storefront") -> dict[str, Any]:
         txn_ref = "txn_" + uuid.uuid4().hex[:12]
         now = time.time()
         with self._conn() as c:
             c.execute(
                 "INSERT INTO orders (txn_ref, cart_id, status, charge_amount, line_items, coupon,"
                 " mandate_jti, created_ts, expires_ts, shopper_ref, contact_key, contact_ref,"
-                " assisted) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " assisted, source) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (txn_ref, cart_id, charge_amount, json.dumps(line_items), json.dumps(coupon),
                  mandate_jti, now, now + PRICE_LOCK_SECONDS, shopper_ref, contact_key, contact_ref,
-                 1 if assisted else 0),
+                 1 if assisted else 0, source),
             )
         return self.get_order(txn_ref)  # type: ignore[return-value]
+
+    def order_history(self, contact_key: str = "", shopper_refs: list[str] | None = None,
+                      limit: int = 30) -> list[dict[str, Any]]:
+        """This shopper's PAID orders, newest first, each naming the surface
+        it came through - the storefront form, the widget, WhatsApp, or a
+        standards-based client. Matched the same way settlement is: by contact
+        or by any of their browser refs."""
+        refs = [r for r in (shopper_refs or []) if r]
+        clauses, params = [], []
+        if contact_key:
+            clauses.append("contact_key = ?")
+            params.append(contact_key)
+        if refs:
+            clauses.append(f"shopper_ref IN ({','.join('?' * len(refs))})")
+            params.extend(refs)
+        if not clauses:
+            return []
+        with self._conn() as c:
+            rows = c.execute(
+                f"SELECT * FROM orders WHERE ({' OR '.join(clauses)}) AND status = 'paid'"
+                " ORDER BY created_ts DESC LIMIT ?", params + [limit]).fetchall()
+        out = []
+        for r in rows:
+            o = dict(r)
+            o["line_items"] = json.loads(o["line_items"])
+            o["coupon"] = json.loads(o["coupon"])
+            out.append(o)
+        return out
 
     def convert_reservations(self, order: dict[str, Any]) -> list[str]:
         """Close any reservation this paid basket satisfies, and report them.
@@ -445,10 +486,14 @@ class ShopDB:
                 if contact_key:
                     clauses.append("contact_key = ?")
                     params.append(contact_key)
+                # A basket's payment must not settle the shortfall that same
+                # basket produced: buying the 18 you got is not recovering the
+                # 3 you were refused (found live, 2026-09-04).
                 rows = c.execute(
                     "SELECT id, qty, value_paise FROM demand_ledger WHERE item_id = ?"
-                    " AND variant = ? AND converted_ts IS NULL"
-                    f" AND ({' OR '.join(clauses)}) ORDER BY created_ts", params).fetchall()
+                    " AND variant = ? AND converted_ts IS NULL AND cart_id != ?"
+                    f" AND ({' OR '.join(clauses)}) ORDER BY created_ts",
+                    [params[0], params[1], str(order.get("cart_id") or "")] + params[2:]).fetchall()
                 # Only as much as this basket actually supplies. Buying 1 of
                 # something you were refused 4 of recovers one unit of demand,
                 # not the whole refusal.
@@ -582,6 +627,17 @@ class ShopDB:
         order["coupon"] = json.loads(order["coupon"])
         return order
 
+    def stale_pending_orders(self) -> list[str]:
+        """Pending orders whose price lock has lapsed - their stock holds are
+        owed back to the shelf. Found live: a shopper's cancelled checkout left
+        a pending order nobody would ever fetch again, and the lazy per-order
+        expiry meant its 18 held units stayed off the shelf forever."""
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT txn_ref FROM orders WHERE status = 'pending' AND expires_ts < ?",
+                (time.time(),)).fetchall()
+        return [r["txn_ref"] for r in rows]
+
     def set_order_status(self, txn_ref: str, status: str,
                          razorpay_order_id: str | None = None, payment_ref: str | None = None) -> None:
         with self._conn() as c:
@@ -638,20 +694,22 @@ class ShopDB:
     # -- demand ledger (spec 6.1, 7.2: refusals become restock forecasts) ----
     def record_lost_demand(self, item_id: str, variant: str, qty: int, unit_price_paise: int,
                            reason: str, res_id: str | None = None, shopper_ref: str = "",
-                           contact_key: str = "") -> int:
+                           contact_key: str = "", cart_id: str = "") -> int:
         """One row per refused demand. value_paise is the revenue not taken.
 
         Records WHO was turned away where we know. A shop that cannot HOLD a
         unit can still TELL someone it has landed - those are different
         capabilities (spec 6.1), and treating them as one threw the sale away.
+        cart_id names the basket whose shortfall this is, so that basket's own
+        payment can never count as the recovery.
         """
         with self._conn() as c:
             cur = c.execute(
                 "INSERT INTO demand_ledger (item_id, variant, qty, unit_price_paise, value_paise,"
-                " reason, res_id, created_ts, shopper_ref, contact_key)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " reason, res_id, created_ts, shopper_ref, contact_key, cart_id)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (item_id, variant, qty, unit_price_paise, qty * unit_price_paise, reason, res_id,
-                 time.time(), shopper_ref, contact_key),
+                 time.time(), shopper_ref, contact_key, cart_id),
             )
         return int(cur.lastrowid)
 
@@ -661,12 +719,22 @@ class ShopDB:
         are excluded - that path notifies separately."""
         with self._conn() as c:
             rows = c.execute(
-                "SELECT id, qty, unit_price_paise, shopper_ref, contact_key FROM demand_ledger"
+                "SELECT id, qty, unit_price_paise, shopper_ref, contact_key, cart_id"
+                " FROM demand_ledger"
                 " WHERE item_id = ? AND variant = ? AND notified_ts IS NULL"
                 " AND converted_ts IS NULL"
                 " AND res_id IS NULL AND (shopper_ref != '' OR contact_key != '')"
                 " ORDER BY created_ts", (item_id, variant)).fetchall()
         return [dict(r) for r in rows]
+
+    def cart_for_reservation(self, res_id: str) -> str:
+        """The basket whose shortfall a reservation is, or '' - so a restock
+        can offer to complete the whole basket instead of quoting one lonely
+        unit at someone who wanted six."""
+        with self._conn() as c:
+            row = c.execute("SELECT cart_id FROM demand_ledger WHERE res_id = ?",
+                            (res_id,)).fetchone()
+        return str(row["cart_id"]) if row else ""
 
     def demand_already_notified(self, item_id: str, variant: str) -> int:
         """People refused this item who have already been told it is back. Not

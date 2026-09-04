@@ -117,10 +117,35 @@ export const shop = {
     request(brand.apiBase,
             `/orders/last?contact_key=${encodeURIComponent(contactKey)}` +
             `&shopper_ref=${encodeURIComponent(shopperKey.ref())}`),
+  orderHistory: (contactKey) =>
+    request(brand.apiBase,
+            `/orders/history?contact_key=${encodeURIComponent(contactKey)}` +
+            `&shopper_ref=${encodeURIComponent(shopperKey.ref())}`),
 };
 
 export const trust = {
   issueMandate: (shops) =>
     request(TRUST_BASE, "/mandate", { method: "POST", body: { shops } }),
   pay: (payload) => request(TRUST_BASE, "/pay", { method: "POST", body: payload }),
+  // Phone + WhatsApp OTP login (never a password). The code arrives from the
+  // same agent that sends restock and cart messages; verifying proves the
+  // number is yours so those messages reach the right person. It can never
+  // move money - paying still takes the exact-amount approval.
+  loginStart: (contactText) =>
+    request(TRUST_BASE, "/auth/whatsapp/start", {
+      method: "POST",
+      body: { contact: contactText },
+    }),
+  loginVerify: (contactText, code) =>
+    request(TRUST_BASE, "/auth/whatsapp/verify", {
+      method: "POST",
+      body: { contact: contactText, code },
+    }),
+  // One person, one basket: the cart the agent already knows for this contact
+  // at this shop (e.g. built over WhatsApp), so login can join it.
+  activeBasket: (contactKey) =>
+    request(
+      TRUST_BASE,
+      `/outreach/basket?contact_key=${encodeURIComponent(contactKey)}&shop=${brand.shopKey}`,
+    ),
 };

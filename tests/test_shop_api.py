@@ -242,3 +242,29 @@ def test_agent_catalog_is_machine_readable(loomcraft):
     assert s["stock"] == 0 and s["restock_date"] == "2026-08-29"
     assert isinstance(kurti["price_paise"], int)
     assert kurti["tags"] and isinstance(kurti["exact_only"], bool)
+
+
+def test_a_cancelled_checkout_gives_the_shelf_back_without_being_fetched(
+        freshkart, buyer_mandate, monkeypatch):
+    """Found live: a shopper cancelled payment after /order held their stock,
+    and because the lazy expiry only ran when THAT order was fetched again -
+    which a cancelled checkout never does - the shelf read 0 forever. Any
+    stock read or fresh order attempt must heal lapsed holds on its own."""
+    import shop.db as shopdb
+
+    before = freshkart.get("/product/lemons-1kg").json()["stock"]
+    assert before > 0
+    monkeypatch.setattr(shopdb, "PRICE_LOCK_SECONDS", -1)   # lock lapses instantly
+    cart = _cart_with(freshkart, [("lemons-1kg", "", before)])
+    placed = freshkart.post("/order", headers=_auth(buyer_mandate),
+                            json={"cart_id": cart})
+    assert placed.status_code == 201, placed.text
+    # the hold happened - and the shopper walks away without paying.
+    # A plain product read (NOT a fetch of that order) must show the shelf back.
+    assert freshkart.get("/product/lemons-1kg").json()["stock"] == before
+    # and a brand-new order for the full quantity succeeds instead of OUT_OF_STOCK
+    monkeypatch.setattr(shopdb, "PRICE_LOCK_SECONDS", 300)
+    cart2 = _cart_with(freshkart, [("lemons-1kg", "", before)])
+    retry = freshkart.post("/order", headers=_auth(buyer_mandate),
+                           json={"cart_id": cart2})
+    assert retry.status_code == 201, retry.text

@@ -385,6 +385,73 @@ def plan(messages: list[dict[str, Any]],
     return {"content": msg.content or "", "tool_calls": calls, "model": resp.model}
 
 
+def route_shop(text: str, current_key: str, shops: dict[str, str]) -> str:
+    """Which shop a WhatsApp message is about - the MODEL's call, not a
+    keyword list. Returns one of the shop keys, or current_key.
+
+    The decision is judgment (\"3 chanderi dupattas\" is apparel; \"same as
+    last time\" is whatever we were doing), so it belongs to the model; the
+    answer space is a fixed enum the caller validates, so a creative reply
+    cannot route anywhere that does not exist. Raises LLMUnavailable so the
+    caller can fall back to its deterministic scorer.
+    """
+    menu = "; ".join(f"'{k}' = {v}" for k, v in shops.items())
+    try:
+        resp = _client().chat.completions.create(
+            model=MODEL, temperature=0,
+            messages=[
+                {"role": "system", "content":
+                    f"You route one shopper message to a shop. Shops: {menu}. "
+                    f"The conversation is currently at '{current_key}'. Answer with "
+                    "ONLY the shop key. If the message names or implies a shop or its "
+                    "goods, pick that shop; otherwise answer the current one."},
+                {"role": "user", "content": text[:500]},
+            ])
+    except Exception as exc:
+        raise LLMUnavailable(f"{type(exc).__name__}: {exc}") from exc
+    answer = (resp.choices[0].message.content or "").strip().strip("'\"").lower()
+    return answer if answer in shops else current_key
+
+
+def route_wa(text: str, current_key: str, shops: dict[str, str]) -> dict[str, str]:
+    """The WhatsApp front door's one judgment call: is this message an
+    instruction WITHIN a shop ("add 3 dupattas", "what goes with it"), or a
+    GOAL to shop across every store ("find me a cotton kurti under 1500",
+    "best price for basmati")?
+
+    Returns {"mode": "shop"|"goal", "shop": <key>}. The answer space is a
+    fixed enum validated by the caller; raises LLMUnavailable so the caller
+    can fall back to deterministic routing.
+    """
+    menu = "; ".join(f"'{k}' = {v}" for k, v in shops.items())
+    try:
+        resp = _client().chat.completions.create(
+            model=MODEL, temperature=0,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content":
+                    'Answer ONLY JSON like {"mode": "shop", "shop": "<key>"}. '
+                    'mode "goal" = the shopper states a WANT to satisfy at the best '
+                    "shop - typically naming a budget, asking to find/compare, or "
+                    "not caring where it comes from. "
+                    'mode "shop" = an instruction or question within one shop '
+                    "(add/remove/show/checkout/smalltalk). "
+                    f"Shops: {menu}. Conversation is currently at '{current_key}'; "
+                    "for mode shop, pick the shop the message is about, else the "
+                    "current one."},
+                {"role": "user", "content": text[:500]},
+            ])
+    except Exception as exc:
+        raise LLMUnavailable(f"{type(exc).__name__}: {exc}") from exc
+    try:
+        data = json.loads(resp.choices[0].message.content or "{}")
+    except ValueError:
+        data = {}
+    mode = "goal" if str(data.get("mode", "")).lower() == "goal" else "shop"
+    shop = str(data.get("shop", "")).lower()
+    return {"mode": mode, "shop": shop if shop in shops else current_key}
+
+
 # -- deterministic fallback (spec 3) ---------------------------------------
 # Only reached when the API is unreachable. Everything it returns is flagged
 # degraded, so the UI never passes it off as the agent reasoning.

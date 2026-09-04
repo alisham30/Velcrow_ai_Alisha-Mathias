@@ -11,6 +11,13 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setenv("MANDATE_SECRET", "test-secret-" + "0" * 32)
     monkeypatch.setenv("RAZORPAY_KEY_ID", "rzp_test_dummy")
     monkeypatch.setenv("RAZORPAY_KEY_SECRET", "dummy-secret")
+    # No test may reach the real model. Set EMPTY, not deleted: create_app's
+    # load_dotenv() re-fills a deleted var from .env but never overrides an
+    # existing one. Every LLM call then raises LLMUnavailable and the
+    # deterministic fallbacks take over - a test that needs model behaviour
+    # stubs it explicitly. (Found live: a routing test inherited the dev key
+    # and made a REAL OpenAI call.)
+    monkeypatch.setenv("OPENAI_API_KEY", "")
 
     # Point the shop's restock callback at a dead port. Otherwise a test run on
     # a machine where .\run_all.ps1 is up reaches the REAL agent on 8003, and

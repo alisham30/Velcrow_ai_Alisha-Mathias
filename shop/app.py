@@ -108,6 +108,7 @@ def create_app() -> FastAPI:
         return [*cfg["coupons"], *db.runtime_coupons()]
 
     def check_stock(item_id: str, variant: str, qty: int) -> None:
+        release_stale_holds()   # never refuse a sale over a hold already owed back
         p = db.product(item_id)
         if p is None:
             raise errors.NotFound(f"no such product '{item_id}'", product_id=item_id)
@@ -139,6 +140,18 @@ def create_app() -> FastAPI:
         lines = priced_lines(cart_id)
         return {"cart_id": cart_id, "items": lines,
                 "subtotal_paise": sum(l["qty"] * l["unit_price_paise"] for l in lines)}
+
+    def release_stale_holds() -> None:
+        """Give every lapsed price-lock hold back to the shelf.
+
+        fresh_order() only releases a hold when THAT order is fetched again -
+        which a cancelled checkout never does (the retry mints a NEW order).
+        Found live: a shopper cancelled payment and their 18 held units kept
+        the product page saying 'out of stock' indefinitely. Any path that is
+        about to read or judge stock calls this first.
+        """
+        for stale in db.stale_pending_orders():
+            fresh_order(stale)
 
     def fresh_order(txn_ref: str) -> dict[str, Any] | None:
         """Lazily expire pending orders past the price lock, restoring stock."""
@@ -177,10 +190,12 @@ def create_app() -> FastAPI:
 
     @app.get("/catalog")
     def catalog() -> list[dict[str, Any]]:
+        release_stale_holds()
         return [public_product(p) for p in db.catalog.values()]
 
     @app.get("/product/{item_id}")
     def product(item_id: str) -> dict[str, Any]:
+        release_stale_holds()
         p = db.product(item_id)
         if p is None:
             raise errors.NotFound(f"no such product '{item_id}'", product_id=item_id)
@@ -361,10 +376,13 @@ def create_app() -> FastAPI:
                 contact_key, contact_ref = "", ""   # never block a sale on it
         if contact_key:
             db.link_shopper(contact_key, shopper_ref, contact_ref)
+        source = str(body.get("source") or "storefront")
+        if source not in ("storefront", "widget", "whatsapp", "acp", "buyer_app"):
+            source = "other"
         order = db.create_order(cart_id, charge, line_items, best, claims["jti"],
                                 shopper_ref=shopper_ref, contact_key=contact_key,
                                 contact_ref=contact_ref,
-                                assisted=bool(body.get("assisted")))
+                                assisted=bool(body.get("assisted")), source=source)
         if negotiated:
             if not db.redeem_offer(str(offer["sig"]), negotiated["neg_id"],
                                    order["txn_ref"]):
@@ -463,6 +481,36 @@ def create_app() -> FastAPI:
         return {"contact_key": key, "contact_ref": contact.display(raw),
                 "linked_devices": len(refs), "orders_claimed": claimed,
                 "has_history": has_history}
+
+    @app.get("/orders/history")
+    def orders_history(shopper_ref: str = "", contact_key: str = "",
+                       limit: int = 30) -> dict[str, Any]:
+        """Every PAID order this shopper made here, newest first, each naming
+        the surface it came through - storefront form, agent widget, WhatsApp,
+        or a standards-based (ACP) client. Identity is the same claim as
+        everywhere else: contact and/or browser ref, never a password."""
+        refs = [shopper_ref] if shopper_ref else []
+        if contact_key:
+            refs.extend(db.refs_for_contact(contact_key))
+        orders = db.order_history(contact_key=contact_key,
+                                  shopper_refs=sorted(set(refs)), limit=limit)
+        out = []
+        for o in orders:
+            names = {}
+            for li in o["line_items"]:
+                p = db.product(li["item_id"])
+                names[(li["item_id"], li["variant"])] = p["name"] if p else li["item_id"]
+            out.append({
+                "txn_ref": o["txn_ref"], "created_ts": o["created_ts"],
+                "charge_amount": o["charge_amount"], "source": o.get("source", "storefront"),
+                "assisted": bool(o.get("assisted")), "rescued": bool(o.get("rescued")),
+                "coupon_codes": (o["coupon"] or {}).get("codes", []),
+                "line_items": [{**li, "name": names[(li["item_id"], li["variant"])]}
+                               for li in o["line_items"]],
+            })
+        return {"shop_id": shop_id, "orders": out,
+                "note": ("source names the door the order came through; every door "
+                         "leads to the same wallet")}
 
     @app.get("/orders/last")
     def last_order(shopper_ref: str = "", contact_key: str = "") -> dict[str, Any]:
@@ -584,7 +632,7 @@ def create_app() -> FastAPI:
 
     def take_reservation(item_id: str, variant: str, qty: int, contact_ref: str,
                          shopper_ref: str, mandate_jti: str,
-                         restock_date: str | None) -> dict[str, Any]:
+                         restock_date: str | None, cart_id: str = "") -> dict[str, Any]:
         """Hold `qty` units the shop cannot supply right now, and value the loss.
 
         Shared by /reserve and the fulfil split below so a reservation means
@@ -612,7 +660,8 @@ def create_app() -> FastAPI:
         # sales read as lapsed forever.
         db.record_lost_demand(item_id, variant, qty, product["price_paise"],
                               "out_of_stock_reserved", res_id,
-                              shopper_ref=shopper_ref, contact_key=contact_key)
+                              shopper_ref=shopper_ref, contact_key=contact_key,
+                              cart_id=cart_id)
         chainlog.append(shop_id, "reservation_created",
                         f"reserved '{item_id}' variant '{variant or '-'}' x{qty} for "
                         f"{contact_ref or shopper_ref or 'an unidentified shopper'} "
@@ -718,7 +767,8 @@ def create_app() -> FastAPI:
         if shortfall and caps.get("reservations"):
             reservation = take_reservation(
                 item_id, variant, shortfall, str(body.get("contact_ref") or ""),
-                str(body.get("shopper_ref") or ""), claims["jti"], restock_date)
+                str(body.get("shopper_ref") or ""), claims["jti"], restock_date,
+                cart_id=cart_id)
             reserved = shortfall
         elif shortfall:
             # Cannot hold one, but we know who wanted it - so a restock can
@@ -726,7 +776,7 @@ def create_app() -> FastAPI:
             db.record_lost_demand(item_id, variant, shortfall, product["price_paise"],
                                   "out_of_stock_unreservable",
                                   shopper_ref=str(body.get("shopper_ref") or ""),
-                                  contact_key=fulfil_contact_key)
+                                  contact_key=fulfil_contact_key, cart_id=cart_id)
             chainlog.append(shop_id, "demand_lost",
                             f"{shortfall} x '{item_id}' {variant or '-'} could not be supplied "
                             f"and this shop takes no reservations; "
@@ -796,6 +846,7 @@ def create_app() -> FastAPI:
                     "qty": int(row["qty"]), "unit_price_paise": product["price_paise"],
                     "contact_ref": "", "shopper_ref": row["shopper_ref"],
                     "contact_key": row["contact_key"], "mandate_jti": "",
+                    "cart_id": str(row.get("cart_id") or ""),
                     # Nothing was reserved for this shopper - this shop cannot.
                     # Saying otherwise would promise a unit that is not theirs.
                     "held": False,
@@ -827,6 +878,7 @@ def create_app() -> FastAPI:
                 "held": True,
                 "contact_ref": res["contact_ref"], "shopper_ref": res["shopper_ref"],
                 "contact_key": res["contact_key"], "mandate_jti": res["mandate_jti"],
+                "cart_id": db.cart_for_reservation(res["res_id"]),
             }
             try:
                 resp = httpx.post(f"{AGENT_URL}/callback/restock", json=payload, timeout=10)
@@ -977,6 +1029,19 @@ def create_app() -> FastAPI:
         for field in ("kind", "payload", "rationale", "numbers"):
             if field not in body:
                 raise errors.BadRequest(f"missing field '{field}'")
+        # One OPEN card per kind+item, ever - not per agent run. The within-run
+        # gate lives in the agent, but every hourly run is a new run, so an
+        # undecided card was re-proposed each hour until the console read like
+        # a stuck record (18 identical restocks, found live). The shop is the
+        # right place to refuse: it owns the card pile.
+        item = (body["payload"] or {}).get("item_id", "")
+        for existing in db.proposals("open"):
+            if (existing["kind"] == body["kind"]
+                    and (existing["payload"] or {}).get("item_id", "") == item):
+                raise errors.IdempotentReplay(
+                    f"an open {body['kind']} proposal for '{item or '-'}' already exists "
+                    f"({existing['prop_id']}); the merchant has not decided it yet",
+                    prop_id=existing["prop_id"])
         prop = db.create_proposal(body["kind"], body["payload"], body["rationale"],
                                   body["numbers"])
         chainlog.append(shop_id, "proposal_created",

@@ -1,22 +1,49 @@
 import React, { useEffect, useState } from "react";
-import { shop } from "../api.js";
+import { shop, trust } from "../api.js";
 import { shopperKey } from "../shopperKey.js";
 import { rupees } from "../money.js";
+import { brand } from "../brand.js";
 
-/* Being known to the shop, without an account (spec 7.3, and spec 14 which
- * bans accounts with passwords).
+/* One person, one basket. If the agent already holds a basket for this
+ * contact (built over WhatsApp, say) and this browser's cart is empty or
+ * absent, adopt the agent's cart so both surfaces show the same goods. */
+async function joinKnownBasket(contactKey) {
+  try {
+    const known = await trust.activeBasket(contactKey);
+    if (!known.cart_id) return;
+    const key = `velcrow-cart-${brand.shopId}`;
+    const local = localStorage.getItem(key);
+    if (local === known.cart_id) return;
+    let adopt = !local;
+    if (!adopt) {
+      const view = await shop.getCart(local).catch(() => null);
+      adopt = !view || view.items.length === 0;
+    }
+    if (adopt) {
+      localStorage.setItem(key, known.cart_id);
+      window.dispatchEvent(new Event("velcrow:cart-changed"));
+    }
+  } catch {
+    /* a missing basket lookup must never break login */
+  }
+}
+
+/* Login the way a real Indian shop does it: phone, six digits, in - and the
+ * code arrives on WhatsApp from the SAME agent that will message about carts
+ * and restocks. Never a password (spec 14's actual concern: nothing to
+ * breach), and deliberately not a key to money: verified or not, paying still
+ * takes the exact-amount approval through the wallet.
  *
- * A phone number or email, typed once and kept in this browser. It survives
- * refreshes and restarts, and it is what makes a past basket findable on a
- * different device - retype the same contact and the history follows.
- *
- * It is NOT a password login and the UI says so, because a contact is a claim
- * rather than a proof. It unlocks order history; it can never move money,
- * which still needs a mandate, a cart-bound approval and the wallet.
+ * An email still works as the old no-password "remember me" - there is no
+ * WhatsApp to deliver a code to.
  */
 export default function SignIn() {
   const [contact, setContact] = useState(() => shopperKey.contact());
+  const [verified, setVerified] = useState(() => shopperKey.verified());
   const [typed, setTyped] = useState("");
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState("contact"); // contact -> code
+  const [sendMode, setSendMode] = useState(""); // sent | outbox | failed
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -28,7 +55,11 @@ export default function SignIn() {
     let gone = false;
     shop
       .identify(contact)
-      .then((who) => (gone ? null : shop.lastOrder(who.contact_key)))
+      .then((who) => {
+        if (gone) return null;
+        joinKnownBasket(who.contact_key);
+        return shop.lastOrder(who.contact_key);
+      })
       .then((order) => !gone && setLast(order))
       .catch(() => !gone && setLast(null));
     return () => {
@@ -36,17 +67,56 @@ export default function SignIn() {
     };
   }, [contact]);
 
-  async function submit(e) {
+  function reset() {
+    setStep("contact");
+    setTyped("");
+    setCode("");
+    setError(null);
+    setSendMode("");
+  }
+
+  async function sendCode(e) {
     e.preventDefault();
-    if (!typed.trim() || busy) return;
+    const text = typed.trim();
+    if (!text || busy) return;
     setBusy(true);
     setError(null);
     try {
-      const who = await shop.identify(typed);
+      if (text.includes("@")) {
+        // Email: the claim-only path. Honest label, no fake OTP.
+        const who = await shop.identify(text);
+        shopperKey.remember(who.contact_ref);
+        setContact(who.contact_ref);
+        setVerified(false);
+        setOpen(false);
+        reset();
+        return;
+      }
+      const out = await trust.loginStart(text);
+      setSendMode(out.mode);
+      setStep("code");
+    } catch (err) {
+      setError(err.why || err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verifyCode(e) {
+    e.preventDefault();
+    if (!code.trim() || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await trust.loginVerify(typed.trim(), code.trim());
+      const who = await shop.identify(typed.trim());
       shopperKey.remember(who.contact_ref);
+      shopperKey.rememberVerified();
+      joinKnownBasket(who.contact_key);
       setContact(who.contact_ref);
+      setVerified(true);
       setOpen(false);
-      setTyped("");
+      reset();
     } catch (err) {
       setError(err.why || err.message);
     } finally {
@@ -57,8 +127,10 @@ export default function SignIn() {
   function forget() {
     shopperKey.forget();
     setContact("");
+    setVerified(false);
     setLast(null);
     setOpen(false);
+    reset();
   }
 
   if (contact) {
@@ -68,7 +140,9 @@ export default function SignIn() {
           onClick={() => setOpen((v) => !v)}
           className="rounded-control border border-line bg-card px-3 py-2 text-sm font-medium hover:border-brand"
         >
-          <span className="hidden sm:inline text-muted">Signed in · </span>
+          <span className="hidden sm:inline text-muted">
+            {verified ? "✓ Logged in · " : "Signed in · "}
+          </span>
           {contact}
         </button>
         {open && (
@@ -97,11 +171,16 @@ export default function SignIn() {
                 findable, on this device or any other.
               </p>
             )}
+            <p className="mt-3 text-xs leading-relaxed text-muted">
+              {verified
+                ? "Number verified by WhatsApp code. That unlocks history and reminders — money still needs your approval on an exact amount."
+                : "Contact remembered without verification. It unlocks history; it can never move money."}
+            </p>
             <button
               onClick={forget}
               className="mt-4 w-full rounded-control border border-line px-3 py-2 text-xs font-semibold text-muted hover:border-danger hover:text-danger"
             >
-              Forget me on this device
+              Log out on this device
             </button>
           </div>
         )}
@@ -115,23 +194,23 @@ export default function SignIn() {
         onClick={() => setOpen((v) => !v)}
         className="rounded-control border border-line bg-card px-3 py-2 text-sm font-medium text-muted hover:border-brand hover:text-ink"
       >
-        Sign in
+        Login
       </button>
-      {open && (
+      {open && step === "contact" && (
         <form
-          onSubmit={submit}
+          onSubmit={sendCode}
           className="absolute right-0 z-40 mt-2 w-72 rounded-card border border-line bg-card p-4 shadow-xl"
         >
-          <p className="brand-label text-xs font-semibold text-muted">Be remembered</p>
+          <p className="brand-label text-xs font-semibold text-muted">Login</p>
           <p className="mt-2 text-xs leading-relaxed text-muted">
-            Your phone number or email. No password — it keeps your orders findable after a
-            refresh, and on any other device you type it into.
+            Phone number gets a 6-digit code on WhatsApp — no password, ever. An email is
+            simply remembered.
           </p>
           <input
             autoFocus
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
-            placeholder="Phone or email"
+            placeholder="Phone number"
             className="mt-3 w-full rounded-control border border-line px-3 py-2 text-sm outline-none focus:border-brand"
           />
           {error && <p className="mt-2 text-xs text-danger">{error}</p>}
@@ -140,7 +219,46 @@ export default function SignIn() {
             disabled={busy || !typed.trim()}
             className="mt-3 w-full rounded-control bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50"
           >
-            {busy ? "Checking…" : "Remember me"}
+            {busy ? "Sending…" : "Send code on WhatsApp"}
+          </button>
+        </form>
+      )}
+      {open && step === "code" && (
+        <form
+          onSubmit={verifyCode}
+          className="absolute right-0 z-40 mt-2 w-72 rounded-card border border-line bg-card p-4 shadow-xl"
+        >
+          <p className="brand-label text-xs font-semibold text-muted">Enter the code</p>
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            {sendMode === "sent"
+              ? `Sent to ${typed} on WhatsApp. It expires in 5 minutes.`
+              : sendMode === "outbox"
+                ? "Message transport is not configured, so the code landed in the merchant outbox (honestly undelivered) — this demo reads it from there."
+                : "The send failed — the code may not arrive. You can go back and retry."}
+          </p>
+          <input
+            autoFocus
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="6-digit code"
+            inputMode="numeric"
+            maxLength={6}
+            className="mt-3 w-full rounded-control border border-line px-3 py-2 text-center text-lg tracking-[0.4em] outline-none focus:border-brand"
+          />
+          {error && <p className="mt-2 text-xs text-danger">{error}</p>}
+          <button
+            type="submit"
+            disabled={busy || code.trim().length < 6}
+            className="mt-3 w-full rounded-control bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50"
+          >
+            {busy ? "Checking…" : "Verify and login"}
+          </button>
+          <button
+            type="button"
+            onClick={reset}
+            className="mt-2 w-full rounded-control border border-line px-3 py-2 text-xs font-semibold text-muted hover:border-brand"
+          >
+            Different number
           </button>
         </form>
       )}

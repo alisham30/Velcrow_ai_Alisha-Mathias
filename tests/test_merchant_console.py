@@ -223,3 +223,21 @@ def test_restocking_needs_a_real_product_and_a_positive_quantity(freshkart):
     assert freshkart.post("/admin/restock",
                           json={"item_id": "no-such-thing", "variant": "", "qty": 5}
                           ).json()["code"] == "NOT_FOUND"
+
+
+def test_an_undecided_proposal_is_not_proposed_again(freshkart):
+    """Found live: the within-run duplicate gate reset every hour, so an
+    undecided restock card was re-filed each run until 18 identical cards sat
+    in the console. One OPEN card per kind+item, ever."""
+    body = {"kind": "restock", "payload": {"item_id": "ghee-500ml", "variant": "", "qty": 3},
+            "rationale": "test", "numbers": {}}
+    first = freshkart.post("/merchant/proposals", json=body)
+    assert first.status_code == 201, first.text
+    dup = freshkart.post("/merchant/proposals", json={**body, "rationale": "again"})
+    assert dup.status_code == 409
+    assert first.json()["prop_id"] in dup.json()["why"]
+    # deciding the first frees the slot
+    freshkart.post(f"/merchant/proposals/{first.json()['prop_id']}/decide",
+                   json={"decision": "reject", "reason": "test"})
+    third = freshkart.post("/merchant/proposals", json=body)
+    assert third.status_code == 201, third.text

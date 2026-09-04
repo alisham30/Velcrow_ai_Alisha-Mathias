@@ -169,7 +169,7 @@ def negotiate_and_buy(shop: dict[str, Any], item_id: str, variant: str, qty: int
                          "contact_ref": contact})
             placed = c.post("/order", headers={**auth, "Idempotency-Key": f"neg-{neg_id}"},
                             json={"cart_id": cart, "offer_token": token, "assisted": True,
-                                  "contact": contact})
+                                  "source": "buyer_app", "contact": contact})
             placed.raise_for_status()
             placed = placed.json()
             c.post("/confirm-payment",

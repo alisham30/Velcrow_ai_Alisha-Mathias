@@ -144,7 +144,7 @@ def gather_context(shop: dict[str, Any], cart_id: str, mandate_claims: dict[str,
 async def run_turn(run: Run, shop: dict[str, Any], cart_id: str, user_text: str,
                    history: list[dict[str, str]], mandate_claims: dict[str, Any],
                    mandate_token: str = "", shopper_ref: str = "",
-                   contact_key: str = "") -> None:
+                   contact_key: str = "", surface: str = "widget") -> None:
     """Execute one shopper turn end to end, emitting events as it goes."""
     # The mandate token rides along because the shop verifies it itself before
     # creating an order (spec 6.6 mutual verification). shopper_ref is the
@@ -152,7 +152,7 @@ async def run_turn(run: Run, shop: dict[str, Any], cart_id: str, user_text: str,
     # let "my usual order" find a basket bought on another device.
     ctx = {"shop_url": shop["url"], "shop_id": shop["shop_id"], "cart_id": cart_id,
            "mandate_token": mandate_token, "shopper_ref": shopper_ref,
-           "contact_key": contact_key, "turn_id": run.run_id}
+           "contact_key": contact_key, "turn_id": run.run_id, "surface": surface}
     loop = asyncio.get_running_loop()
 
     try:

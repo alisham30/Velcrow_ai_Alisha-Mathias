@@ -348,7 +348,7 @@ def mount(app: FastAPI, ctx: dict[str, Any]) -> None:
             # settles rescued reservations and recovered demand identically.
             try:
                 _, placed = place_order(
-                    {"cart_id": sess["cart_id"], "assisted": True,
+                    {"cart_id": sess["cart_id"], "assisted": True, "source": "acp",
                      "shopper_ref": f"acp_{session_id}",
                      "contact": buyer.get("email", "")}, claims)
                 _, paid = settle_payment(

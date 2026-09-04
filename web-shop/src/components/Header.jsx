@@ -16,6 +16,12 @@ export default function Header() {
           </span>
         </Link>
         <div className="flex items-center gap-2">
+        <Link
+          to="/orders"
+          className="rounded-control border border-line bg-card px-3 py-2 text-sm font-medium text-muted hover:border-brand hover:text-ink"
+        >
+          Orders
+        </Link>
         <SignIn />
         <button
           onClick={() => setDrawerOpen(true)}

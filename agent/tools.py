@@ -563,7 +563,10 @@ def start_checkout(ctx: dict[str, Any], **_: Any) -> dict[str, Any]:
                             # the agent drove this checkout, not the storefront
                             # form - this is what the console's assisted vs
                             # unassisted split is counted from (spec 6.1, 7.4)
-                            "assisted": True},
+                            "assisted": True,
+                            # which mouth of the agent: the page widget or the
+                            # WhatsApp chat - the order-history page names it
+                            "source": ctx.get("surface") or "widget"},
                       headers={"Authorization": f"Mandate {token}",
                                "Idempotency-Key": f"chk-{ctx['cart_id']}-{ctx.get('turn_id', '')}"})
     if resp.status_code not in (200, 201):
