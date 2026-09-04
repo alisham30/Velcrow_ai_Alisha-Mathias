@@ -15,6 +15,7 @@ const SOURCE = {
   widget: { label: "Agent widget", cls: "bg-amber-100 text-amber-900 border-amber-300" },
   storefront: { label: "Website", cls: "bg-slate-100 text-slate-800 border-slate-300" },
   acp: { label: "ACP client", cls: "bg-indigo-100 text-indigo-900 border-indigo-300" },
+  mcp: { label: "AI assistant (MCP)", cls: "bg-purple-100 text-purple-900 border-purple-300" },
   buyer_app: { label: "Buyer app", cls: "bg-rose-100 text-rose-900 border-rose-300" },
   other: { label: "Other", cls: "bg-slate-100 text-slate-800 border-slate-300" },
 };

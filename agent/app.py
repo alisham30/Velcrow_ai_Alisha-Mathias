@@ -36,6 +36,16 @@ INSTALLED_SHOPS: dict[str, dict[str, Any]] = {
                 "url": "http://127.0.0.1:8001"},
     "apparel": {"shop_id": "loomcraft", "name": "Loomcraft", "category": "apparel",
                 "url": "http://127.0.0.1:8002"},
+    # COMPETITORS in each domain, so cross-shop comparison is a real contest:
+    # overlapping goods, different prices, each with its own cost book.
+    "apparel2": {"shop_id": "silkroute", "name": "SilkRoute", "category": "apparel",
+                 "url": "http://127.0.0.1:8004"},
+    "grocery2": {"shop_id": "dailymandi", "name": "DailyMandi", "category": "grocery",
+                 "url": "http://127.0.0.1:8005"},
+    "home": {"shop_id": "urbannest", "name": "UrbanNest", "category": "home",
+             "url": "http://127.0.0.1:8006"},
+    "home2": {"shop_id": "mitticraft", "name": "MittiCraft", "category": "home",
+              "url": "http://127.0.0.1:8007"},
 }
 WIDGET_JS = Path(__file__).parent / "static" / "velcrow.js"
 
@@ -43,7 +53,7 @@ FRONTEND_ORIGINS = ["http://localhost:5173", "http://localhost:5174", "http://lo
                     "http://127.0.0.1:5173", "http://127.0.0.1:5174", "http://127.0.0.1:5175"]
 DEFAULT_MAX_TOTAL_PAISE = 500000   # Rs 5,000 session budget
 DEFAULT_MAX_PER_TXN_PAISE = 300000  # Rs 3,000 per transaction
-KNOWN_SHOPS = {"freshkart", "loomcraft"}
+KNOWN_SHOPS = {"freshkart", "loomcraft", "silkroute", "dailymandi", "urbannest", "mitticraft"}
 
 
 def _post_confirm(shop_url: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -306,10 +316,93 @@ def create_app() -> FastAPI:
 
     @app.post("/auth/whatsapp/verify")
     async def wa_login_verify(request: Request) -> dict[str, Any]:
-        """Code in, verified contact_key out. Wrong codes burn out in three."""
+        """Code in, verified contact_key out. Wrong codes burn out in three.
+        With a link_id, a success also completes that out-of-band session."""
         body = await json_body(request)
         return outreach.verify_login(str(body.get("contact") or ""),
-                                     str(body.get("code") or ""))
+                                     str(body.get("code") or ""),
+                                     link_id=str(body.get("link_id") or ""))
+
+    @app.post("/auth/link/start", status_code=201)
+    def link_login_start() -> dict[str, Any]:
+        """Out-of-band login for assistant surfaces (MCP): the assistant gets
+        a link; the number and code are typed on the person's own browser
+        page, never in the chat."""
+        link = outreach.create_link_login()
+        return {"link_id": link["link_id"],
+                "url": f"http://127.0.0.1:8003/auth/link/{link['link_id']}"}
+
+    @app.get("/auth/link/{link_id}/status")
+    def link_login_state(link_id: str) -> dict[str, Any]:
+        return outreach.link_login_status(link_id)
+
+    @app.get("/auth/link/{link_id}")
+    def link_login_page(link_id: str) -> Any:
+        """The login page itself. Same-origin calls to the OTP endpoints; the
+        assistant polling /status only ever learns 'done' and the contact the
+        person chose to attach."""
+        from fastapi.responses import HTMLResponse
+        state = outreach.link_login_status(link_id)
+        if not state["exists"]:
+            return HTMLResponse("<h3 style='font-family:sans-serif'>This login link has "
+                                "expired. Ask the assistant for a fresh one.</h3>",
+                                status_code=404)
+        return HTMLResponse("""<!doctype html><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VelcrowAI login</title>
+<style>
+ body{font-family:system-ui,sans-serif;background:#f2f4f2;color:#12181c;
+      display:flex;justify-content:center;padding:3rem 1rem}
+ .card{background:#fff;border:1px solid #d2dad6;border-radius:8px;padding:2rem;
+       max-width:22rem;width:100%}
+ h1{font-size:1.2rem;margin:0 0 .3rem} p{color:#5c6a64;font-size:.9rem;line-height:1.45}
+ input{width:100%;box-sizing:border-box;padding:.6rem .7rem;font-size:1rem;
+       border:1.5px solid #d2dad6;border-radius:6px;margin:.4rem 0}
+ button{width:100%;padding:.65rem;font-size:1rem;font-weight:600;color:#fff;
+        background:#0f6b52;border:0;border-radius:6px;cursor:pointer;margin-top:.4rem}
+ .muted{font-size:.8rem;color:#5c6a64} .err{color:#a8341f;font-size:.85rem}
+ .ok{color:#0f6b52;font-weight:600}
+</style>
+<div class="card">
+ <h1>Log in to VelcrowAI</h1>
+ <p>Your number and code stay on this page - the assistant only learns that
+    you logged in. The code can never move money; paying always needs your
+    approval of an exact amount.</p>
+ <div id="s1">
+   <input id="phone" placeholder="Phone number" inputmode="tel" autofocus>
+   <button onclick="send()">Send code on WhatsApp</button>
+ </div>
+ <div id="s2" style="display:none">
+   <input id="code" placeholder="6-digit code" inputmode="numeric" maxlength="6">
+   <button onclick="verify()">Verify</button>
+ </div>
+ <p id="msg" class="muted"></p>
+</div>
+<script>
+const LID = location.pathname.split('/').pop();
+const msg = t => document.getElementById('msg').innerHTML = t;
+async function send(){
+  const r = await fetch('/auth/whatsapp/start', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({contact: document.getElementById('phone').value})});
+  const b = await r.json();
+  if(!r.ok){ msg('<span class="err">'+(b.why||'could not send')+'</span>'); return; }
+  document.getElementById('s1').style.display='none';
+  document.getElementById('s2').style.display='block';
+  msg('Code sent to your WhatsApp. It expires in 5 minutes.');
+  document.getElementById('code').focus();
+}
+async function verify(){
+  const r = await fetch('/auth/whatsapp/verify', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({contact: document.getElementById('phone').value,
+                          code: document.getElementById('code').value, link_id: LID})});
+  const b = await r.json();
+  if(!r.ok){ msg('<span class="err">'+(b.why||'wrong code')+'</span>'); return; }
+  document.getElementById('s2').style.display='none';
+  msg('<span class="ok">Logged in. You can close this tab and go back to the assistant.</span>');
+}
+</script>""")
 
     @app.get("/orchestrator/status")
     def orchestrator_status() -> dict[str, Any]:

@@ -33,6 +33,18 @@ $services = @(
     @{ Name = "Loomcraft API";      Port = 8002; Probe = "/catalog";
        Dir = $root;                    Env = @{ SHOP = "apparel" }
        Cmd = "python -m uvicorn shop.app:create_app --factory --port 8002" }
+    @{ Name = "SilkRoute API";      Port = 8004; Probe = "/catalog";
+       Dir = $root;                    Env = @{ SHOP = "apparel2" }
+       Cmd = "python -m uvicorn shop.app:create_app --factory --port 8004" }
+    @{ Name = "DailyMandi API";     Port = 8005; Probe = "/catalog";
+       Dir = $root;                    Env = @{ SHOP = "grocery2" }
+       Cmd = "python -m uvicorn shop.app:create_app --factory --port 8005" }
+    @{ Name = "UrbanNest API";      Port = 8006; Probe = "/catalog";
+       Dir = $root;                    Env = @{ SHOP = "home" }
+       Cmd = "python -m uvicorn shop.app:create_app --factory --port 8006" }
+    @{ Name = "MittiCraft API";     Port = 8007; Probe = "/catalog";
+       Dir = $root;                    Env = @{ SHOP = "home2" }
+       Cmd = "python -m uvicorn shop.app:create_app --factory --port 8007" }
     @{ Name = "VelcrowAI agent";    Port = 8003; Probe = "/health";
        Dir = $root;                    Env = @{}
        Cmd = "python -m uvicorn agent.app:create_app --factory --port 8003" }

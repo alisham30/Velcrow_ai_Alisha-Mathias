@@ -13,7 +13,9 @@ import razorpay
 
 from common import approval, chainlog, errors, mandate
 
-SHOP_URLS: dict[str, str] = {"freshkart": "http://localhost:8001", "loomcraft": "http://localhost:8002"}
+SHOP_URLS: dict[str, str] = {"freshkart": "http://localhost:8001", "loomcraft": "http://localhost:8002",
+                             "silkroute": "http://localhost:8004", "dailymandi": "http://localhost:8005",
+                             "urbannest": "http://localhost:8006", "mitticraft": "http://localhost:8007"}
 
 
 def _fetch_charge(shop_url: str, txn_ref: str) -> dict[str, Any]:

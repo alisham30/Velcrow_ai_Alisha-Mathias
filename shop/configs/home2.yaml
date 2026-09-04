@@ -1,0 +1,29 @@
+shop_id: mitticraft
+brand: MittiCraft
+category: home
+variant_kind: size
+catalog_file: catalogs/home2.json
+theme:
+  primary: "#6b3226"
+  accent: "#c9a227"
+capabilities:
+  checkout: true
+  discounts: true
+  reservations: true
+  restock_notify: true
+  human_approval: true
+  variants: size
+coupons:
+  - code: MITTI75
+    kind: flat
+    value_paise: 7500
+    min_cart_paise: 79900
+    stackable: false
+    description: "Rs 75 off orders over Rs 799"
+  - code: CRAFT10
+    kind: percent
+    value_pct: 10
+    cap_paise: 25000
+    min_cart_paise: 129900
+    stackable: false
+    description: "10% off orders over Rs 1,299, up to Rs 250"

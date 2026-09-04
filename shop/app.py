@@ -377,7 +377,7 @@ def create_app() -> FastAPI:
         if contact_key:
             db.link_shopper(contact_key, shopper_ref, contact_ref)
         source = str(body.get("source") or "storefront")
-        if source not in ("storefront", "widget", "whatsapp", "acp", "buyer_app"):
+        if source not in ("storefront", "widget", "whatsapp", "acp", "buyer_app", "mcp"):
             source = "other"
         order = db.create_order(cart_id, charge, line_items, best, claims["jti"],
                                 shopper_ref=shopper_ref, contact_key=contact_key,

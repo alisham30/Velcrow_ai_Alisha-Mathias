@@ -1,0 +1,86 @@
+[
+  {
+    "id": "cushion-block-print-set4",
+    "name": "Block Print Cushion Covers (set of 4)",
+    "category": "living",
+    "price_paise": 99900,
+    "cost_price_paise": 61000,
+    "image_url": "/img/cushions-blockprint.jpg",
+    "description": "Hand block printed cotton cushion covers, 16 inch, set of four.",
+    "tags": ["cushion", "cotton", "living", "handmade"],
+    "stock": 12,
+    "exact_only": false
+  },
+  {
+    "id": "diya-brass-pair",
+    "name": "Brass Diya (pair)",
+    "category": "decor",
+    "price_paise": 64900,
+    "cost_price_paise": 39000,
+    "image_url": "/img/diya-brass.jpg",
+    "description": "Hand-cast brass diyas with peacock motif, pair.",
+    "tags": ["diya", "brass", "decor", "festive"],
+    "stock": 15,
+    "exact_only": false
+  },
+  {
+    "id": "mugs-terracotta-set2",
+    "name": "Terracotta Mugs (set of 2)",
+    "category": "kitchen",
+    "price_paise": 59900,
+    "cost_price_paise": 33000,
+    "image_url": "/img/mugs-terracotta.jpg",
+    "description": "Hand-thrown terracotta mugs, 280 ml, natural finish.",
+    "tags": ["mug", "kitchen", "terracotta", "handmade"],
+    "stock": 10,
+    "exact_only": false
+  },
+  {
+    "id": "wall-hanging-macrame",
+    "name": "Macrame Wall Hanging",
+    "category": "decor",
+    "price_paise": 149900,
+    "cost_price_paise": 92000,
+    "image_url": "/img/macrame.jpg",
+    "description": "Hand-knotted cotton macrame wall hanging, 3 feet.",
+    "tags": ["wall-hanging", "decor", "handmade"],
+    "stock": 6,
+    "exact_only": false
+  },
+  {
+    "id": "bedsheet-kantha-queen",
+    "name": "Kantha Stitch Queen Bedsheet",
+    "category": "bedroom",
+    "price_paise": 189900,
+    "cost_price_paise": 122000,
+    "image_url": "/img/bedsheet-kantha.jpg",
+    "description": "Queen cotton bedsheet with hand kantha stitching, two pillow covers.",
+    "tags": ["bedsheet", "cotton", "bedroom", "handmade"],
+    "stock": 8,
+    "exact_only": false
+  },
+  {
+    "id": "planter-ceramic-set3",
+    "name": "Ceramic Planters (set of 3)",
+    "category": "decor",
+    "price_paise": 119900,
+    "cost_price_paise": 74000,
+    "image_url": "/img/planters.jpg",
+    "description": "Glazed ceramic planters in three sizes, drainage holes.",
+    "tags": ["planter", "ceramic", "decor"],
+    "stock": 7,
+    "exact_only": false
+  },
+  {
+    "id": "lamp-terracotta-table",
+    "name": "Terracotta Table Lamp",
+    "category": "lighting",
+    "price_paise": 259900,
+    "cost_price_paise": 168000,
+    "image_url": "/img/lamp-terracotta.jpg",
+    "description": "Hand-thrown terracotta lamp base with a jute shade.",
+    "tags": ["lamp", "terracotta", "lighting", "handmade"],
+    "stock": 5,
+    "exact_only": false
+  }
+]

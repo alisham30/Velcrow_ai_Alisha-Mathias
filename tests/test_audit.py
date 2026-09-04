@@ -34,9 +34,10 @@ def test_a_clean_chain_verifies_green(audit):
     assert body["chains"]["buyer"]["first_bad_index"] is None
 
 
-def test_both_shops_and_the_buyer_are_covered(audit):
+def test_every_shop_and_the_buyer_are_covered(audit):
     body = audit.get("/audit/verify").json()
-    assert set(body["chains"]) == {"buyer", "freshkart", "loomcraft"}
+    assert set(body["chains"]) == {"buyer", "freshkart", "loomcraft", "silkroute",
+                                   "dailymandi", "urbannest", "mitticraft"}
 
 
 def test_every_entry_carries_a_human_readable_why(audit):

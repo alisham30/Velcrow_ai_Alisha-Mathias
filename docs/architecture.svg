@@ -25,19 +25,23 @@
 <text x="600.0" y="161.0" font-size="11.5" fill="#5c6a64" text-anchor="start" font-style="italic">sentences, taps, decisions</text>
 <rect x="16" y="186" width="1148" height="92" rx="5" fill="none" stroke="#c9d3ce" stroke-width="1"/>
 <text x="28" y="206.0" font-size="12.5" fill="#12181c" text-anchor="start" font-weight="700">TIER 2 - SURFACES</text>
-<text x="28" y="222" font-size="11" fill="#5c6a64" text-anchor="start">React, one codebase, two brands</text>
-<rect x="210" y="204" width="222" height="56" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
-<text x="321.0" y="228.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">FreshKart storefront</text>
-<text x="321.0" y="244.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">widget embedded - :5173</text>
-<rect x="444" y="204" width="222" height="56" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
-<text x="555.0" y="228.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">Loomcraft storefront</text>
-<text x="555.0" y="244.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">same code, second brand - :5174</text>
-<rect x="678" y="204" width="222" height="56" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
-<text x="789.0" y="228.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">Consoles / Buyer app / Audit</text>
-<text x="789.0" y="244.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">:5173-5175 /console, :5175</text>
-<rect x="912" y="204" width="222" height="56" rx="4" fill="#ffffff" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="5,4"/>
-<text x="1023.0" y="228.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">WhatsApp</text>
-<text x="1023.0" y="244.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">Meta Cloud API, test number</text>
+<text x="28" y="222" font-size="11" fill="#5c6a64" text-anchor="start">one brain, five mouths</text>
+<rect x="210" y="204" width="178" height="56" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="299.0" y="228.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">FreshKart storefront</text>
+<text x="299.0" y="244.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">widget - :5173</text>
+<rect x="398" y="204" width="178" height="56" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="487.0" y="228.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Loomcraft storefront</text>
+<text x="487.0" y="244.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">widget - :5174</text>
+<rect x="586" y="204" width="178" height="56" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="675.0" y="228.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Consoles / Buyer / Audit</text>
+<text x="675.0" y="244.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">/console, :5175</text>
+<rect x="774" y="204" width="178" height="56" rx="4" fill="#ffffff" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="863.0" y="228.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">WhatsApp</text>
+<text x="863.0" y="244.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">Meta Cloud API</text>
+<rect x="962" y="204" width="178" height="56" rx="4" fill="#ffffff" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="1051.0" y="220.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">MCP clients</text>
+<text x="1051.0" y="236.375" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">Claude Desktop etc.,</text>
+<text x="1051.0" y="251.875" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">link-based login</text>
 <line x1="590" y1="278" x2="590" y2="316" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
 <text x="600.0" y="291.0" font-size="11.5" fill="#5c6a64" text-anchor="start" font-style="italic">every request</text>
 <rect x="16" y="316" width="1148" height="210" rx="5" fill="none" stroke="#c9d3ce" stroke-width="1"/>
@@ -70,11 +74,11 @@
 <text x="600.0" y="539.0" font-size="11.5" fill="#5c6a64" text-anchor="start" font-style="italic">priced requests under a mandate</text>
 <rect x="16" y="564" width="1148" height="96" rx="5" fill="none" stroke="#c9d3ce" stroke-width="1"/>
 <text x="28" y="584.0" font-size="12.5" fill="#12181c" text-anchor="start" font-weight="700">TIER 4 - THE SHOPS</text>
-<text x="28" y="600" font-size="11" fill="#5c6a64" text-anchor="start">:8001 / :8002 - never see each other</text>
+<text x="28" y="600" font-size="11" fill="#5c6a64" text-anchor="start">six merchants - never see each other</text>
 <rect x="210" y="582" width="916" height="62" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
-<text x="668.0" y="601.225" font-size="13.5" fill="#12181c" text-anchor="middle" font-weight="600">FreshKart API and Loomcraft API - all arithmetic happens here</text>
-<text x="668.0" y="617.725" font-size="12.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">catalog | carts | coupon engine | demand ledger | reservations | negotiation policy</text>
-<text x="668.0" y="634.225" font-size="12.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">ACP checkout (2026-04-17) | agent manifest | order history with sources</text>
+<text x="668.0" y="601.225" font-size="13.5" fill="#12181c" text-anchor="middle" font-weight="600">FreshKart + DailyMandi (grocery) | Loomcraft + SilkRoute (apparel) | UrbanNest + MittiCraft (home)</text>
+<text x="668.0" y="617.725" font-size="12.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">every domain a two-merchant contest; all arithmetic happens here - catalog, carts, coupons,</text>
+<text x="668.0" y="634.225" font-size="12.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">demand ledger, reservations, negotiation (own cost book), ACP checkout, manifest, order sources</text>
 <line x1="590" y1="660" x2="590" y2="698" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
 <text x="600.0" y="673.0" font-size="11.5" fill="#5c6a64" text-anchor="start" font-style="italic">money only through wallet.py</text>
 <rect x="16" y="698" width="1148" height="92" rx="5" fill="none" stroke="#c9d3ce" stroke-width="1"/>
@@ -85,7 +89,7 @@
 <text x="321.0" y="748.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">test mode - real API,</text>
 <text x="321.0" y="764.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">no real rupees</text>
 <rect x="456" y="716" width="670" height="56" rx="4" fill="#d9e8e1" stroke="#0f6b52" stroke-width="2.0"/>
-<text x="791.0" y="732.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">Three SHA-256 hash chains + the audit room</text>
+<text x="791.0" y="732.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">Seven SHA-256 hash chains + the audit room</text>
 <text x="791.0" y="748.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">append-only; tamper one entry and verification goes red at that index;</text>
 <text x="791.0" y="764.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">disputes and negotiations shown from both sides</text>
 <rect x="210" y="801" width="13" height="13" rx="2" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.5"/>

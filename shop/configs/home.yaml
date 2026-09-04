@@ -1,0 +1,29 @@
+shop_id: urbannest
+brand: UrbanNest
+category: home
+variant_kind: size
+catalog_file: catalogs/home.json
+theme:
+  primary: "#3b3355"
+  accent: "#d98c5f"
+capabilities:
+  checkout: true
+  discounts: true
+  reservations: true
+  restock_notify: true
+  human_approval: true
+  variants: size
+coupons:
+  - code: NEST100
+    kind: flat
+    value_paise: 10000
+    min_cart_paise: 99900
+    stackable: false
+    description: "Rs 100 off orders over Rs 999"
+  - code: HOME15
+    kind: percent
+    value_pct: 15
+    cap_paise: 45000
+    min_cart_paise: 199900
+    stackable: false
+    description: "15% off orders over Rs 1,999, up to Rs 450"

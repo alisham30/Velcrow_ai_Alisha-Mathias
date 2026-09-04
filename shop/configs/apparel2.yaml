@@ -1,0 +1,29 @@
+shop_id: silkroute
+brand: SilkRoute
+category: apparel
+variant_kind: size
+catalog_file: catalogs/apparel2.json
+theme:
+  primary: "#2a3a4a"
+  accent: "#b0713a"
+capabilities:
+  checkout: true
+  discounts: true
+  reservations: true
+  restock_notify: true
+  human_approval: true
+  variants: size
+coupons:
+  - code: SILK150
+    kind: flat
+    value_paise: 15000
+    min_cart_paise: 149900
+    stackable: false
+    description: "Rs 150 off orders over Rs 1,499"
+  - code: ROUTE12
+    kind: percent
+    value_pct: 12
+    cap_paise: 40000
+    min_cart_paise: 129900
+    stackable: false
+    description: "12% off orders over Rs 1,299, up to Rs 400"

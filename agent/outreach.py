@@ -89,6 +89,10 @@ def _db() -> sqlite3.Connection:
           contact_key TEXT PRIMARY KEY, wa_id TEXT NOT NULL,
           profile_name TEXT NOT NULL DEFAULT '', first_seen REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS wa_processed (wamid TEXT PRIMARY KEY, ts REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS wa_link_logins (
+          link_id TEXT PRIMARY KEY, status TEXT NOT NULL DEFAULT 'pending',
+          contact TEXT NOT NULL DEFAULT '', contact_key TEXT NOT NULL DEFAULT '',
+          created_ts REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS wa_login_codes (
           contact_key TEXT PRIMARY KEY, code_hash TEXT NOT NULL,
           expires_ts REAL NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,
@@ -482,7 +486,7 @@ def _handle_message(msg: dict[str, Any], profile_name: str) -> dict[str, Any]:
         _send_text(wa_id, "greeting",
                    "Namaste! This is the VelcrowAI agent. Tell me what you need - "
                    "\"3 chanderi dupattas\", \"1 kg lemons\" - and I'll shop for it. Say "
-                   "freshkart or loomcraft to switch shops, and ask to check out when "
+                   "freshkart, loomcraft or silkroute to switch shops, and ask to check out when "
                    "you're ready: I'll send an Approve button with the exact amount. "
                    "Nothing is ever paid without that tap, and I never ask for card or "
                    "UPI details.")
@@ -519,27 +523,6 @@ def _shops() -> dict[str, dict[str, Any]]:
     return agent_app.INSTALLED_SHOPS
 
 
-def _pick_shop(text: str) -> str:
-    """Which shop a first message is about, from the shops' own catalogs.
-    Deterministic routing, not judgment: score word overlap with product
-    names/tags; ties and misses fall back to grocery."""
-    words = {w for w in "".join(ch if ch.isalnum() else " " for ch in text.lower()).split()
-             if len(w) >= 3}
-    best_key, best_score = "grocery", 0
-    for key, installed in _shops().items():
-        try:
-            with httpx.Client(base_url=installed["url"], timeout=10) as http:
-                catalog = http.get("/catalog").json()
-        except Exception:
-            continue
-        hay = " ".join(f"{p.get('name', '')} {' '.join(p.get('tags', []))}"
-                       for p in catalog).lower()
-        score = sum(1 for w in words if w in hay)
-        if score > best_score:
-            best_key, best_score = key, score
-    return best_key
-
-
 def active_cart(contact_key: str, shop_id: str) -> str:
     """The basket this person already has going at this shop, from either
     surface - one person, one basket, whichever mouth they use."""
@@ -554,27 +537,83 @@ def active_cart(contact_key: str, shop_id: str) -> str:
     return act["cart_id"] if act else ""
 
 
+_MENU_CACHE: dict[str, Any] = {"ts": 0.0, "menu": {}, "hay": {}}
+_MENU_TTL = 600
+
+
+def _refresh_catalog_cache() -> None:
+    """One fetch serves both routing halves: `menu` (per-shop vocabulary
+    sentences for the model's mode judgment) and `hay` (the full lowercase
+    catalog text the deterministic shop chooser scores against)."""
+    if time.time() - _MENU_CACHE["ts"] < _MENU_TTL and _MENU_CACHE["hay"]:
+        return
+    menu: dict[str, str] = {}
+    hay: dict[str, str] = {}
+    for key, ins in _shops().items():
+        words: list[str] = []
+        pieces: list[str] = []
+        try:
+            with httpx.Client(base_url=ins["url"], timeout=8) as http:
+                for p in http.get("/catalog").json():
+                    pieces.append(f"{p.get('name', '')} {p.get('category', '')} "
+                                  f"{' '.join(p.get('tags', []))}")
+                    for w in [p.get("category", "")] + list(p.get("tags", [])):
+                        if w and w not in words:
+                            words.append(w)
+        except Exception:
+            pass
+        vocab = ", ".join(words[:14])
+        menu[key] = f"{ins['name']} ({ins['category']}" + (f": sells {vocab}" if vocab else "") + ")"
+        hay[key] = " ".join(pieces).lower()
+    _MENU_CACHE.update(menu=menu, hay=hay)
+    if any(hay.values()):
+        _MENU_CACHE["ts"] = time.time()
+
+
+def _shop_menu() -> dict[str, str]:
+    """What each shop actually SELLS, for the router's mode judgment - names
+    and categories alone once routed 'are there any cushions' to the grocer,
+    because nothing told the model who sells cushions."""
+    _refresh_catalog_cache()
+    return dict(_MENU_CACHE["menu"])
+
+
+def _catalog_hay() -> dict[str, str]:
+    """Each shop's full catalog text, lowercased, for the deterministic shop
+    chooser."""
+    _refresh_catalog_cache()
+    return dict(_MENU_CACHE["hay"])
+
+
 def _route_message(text: str, current_key: str | None) -> dict[str, str]:
     """Instruction within a shop, or a goal to satisfy across every shop?
     The orchestrator's call - one place owns routing between agents."""
     from agent import orchestrator
-    shops = {key: f"{ins['name']} ({ins['category']})" for key, ins in _shops().items()}
-    return orchestrator.route(text, current_key, shops, _route_shop)
+    return orchestrator.route(text, current_key, _shop_menu(), _route_shop)
 
 
 def _route_shop(text: str, current_key: str | None) -> str:
-    """The model decides which shop the message is about; the answer space is
-    a fixed enum, and any model failure falls back to the deterministic
-    catalog scorer - routing may be judgment, but it may never be down."""
-    from agent import llm
-    shops = {key: f"{ins['name']} ({ins['category']})" for key, ins in _shops().items()}
-    try:
-        return llm.route_shop(text, current_key or "grocery", shops)
-    except Exception:
-        return current_key or _pick_shop(text)
+    """Which shop the message is about - pure vocabulary lookup against the
+    live catalogs. Deliberately NOT a model: 'Dupattas' kept staying at the
+    grocer when a model did this, because matching words to catalogs is
+    lexical work, not judgment. A shop that names the goods wins; ties keep
+    the current shop; a message naming no goods stays where it is."""
+    raw_words = {w for w in "".join(ch if ch.isalnum() else " " for ch in text.lower()).split()
+                 if len(w) >= 3}
+    words = raw_words | {w[:-1] for w in raw_words if w.endswith("s") and len(w) > 3}
+    scores: dict[str, int] = {}
+    for key, hay in _catalog_hay().items():
+        scores[key] = sum(1 for w in words if w in hay)
+    best = max(scores.values() or [0])
+    if best <= 0:
+        return current_key or "grocery"
+    winners = [k for k, v in scores.items() if v == best]
+    if current_key in winners:
+        return current_key
+    return winners[0]
 
 
-def _chat_state(contact_key: str, text: str, shop_key: str) -> dict[str, Any]:
+def _chat_state(contact_key: str, shop_key: str) -> dict[str, Any]:
     with _db() as c:
         row = c.execute("SELECT * FROM wa_chats WHERE contact_key = ?",
                         (contact_key,)).fetchone()
@@ -668,7 +707,7 @@ def run_wa_turn(wa_id: str, text: str) -> dict[str, Any]:
                          f"routed {text[:60]!r} to {decide['shop']}",
                          shop_key=decide["shop"])
     try:
-        chat = _chat_state(key, text, decide["shop"])
+        chat = _chat_state(key, decide["shop"])
         if not chat["cart_id"]:
             _send_text(wa_id, "chat_reply",
                        "The shop isn't answering right now, so I couldn't start a basket. "
@@ -1272,7 +1311,32 @@ def start_login(contact_raw: str) -> dict[str, Any]:
             "expires_in_seconds": LOGIN_CODE_TTL}
 
 
-def verify_login(contact_raw: str, code: str) -> dict[str, Any]:
+LINK_LOGIN_TTL = 600
+
+
+def create_link_login() -> dict[str, str]:
+    """An out-of-band login session: the assistant gets only a link; the
+    phone number and the code are entered on the person's own browser page
+    and never pass through the chat."""
+    link_id = "lnk_" + secrets.token_hex(12)
+    with _db() as c:
+        c.execute("INSERT INTO wa_link_logins (link_id, created_ts) VALUES (?, ?)",
+                  (link_id, time.time()))
+    return {"link_id": link_id}
+
+
+def link_login_status(link_id: str) -> dict[str, Any]:
+    with _db() as c:
+        row = c.execute("SELECT * FROM wa_link_logins WHERE link_id = ?",
+                        (link_id,)).fetchone()
+    if row is None or time.time() > row["created_ts"] + LINK_LOGIN_TTL:
+        return {"exists": False, "done": False}
+    return {"exists": True, "done": row["status"] == "done",
+            "contact": row["contact"] if row["status"] == "done" else "",
+            "contact_key": row["contact_key"] if row["status"] == "done" else ""}
+
+
+def verify_login(contact_raw: str, code: str, link_id: str = "") -> dict[str, Any]:
     try:
         key = contact.normalise(contact_raw)
     except contact.InvalidContact as exc:
@@ -1321,6 +1385,15 @@ def verify_login(contact_raw: str, code: str) -> dict[str, Any]:
                     "history and reminders on this device; money still needs the "
                     "exact-amount approval through the wallet",
                     {"contact_key": key})
+    if link_id:
+        # Out-of-band completion: ONLY a successful OTP verification can mark
+        # a link session done - there is no separate "complete" call to forge.
+        with _db() as c:
+            c.execute("UPDATE wa_link_logins SET status = 'done', contact = ?, "
+                      "contact_key = ? WHERE link_id = ? AND status = 'pending' "
+                      "AND created_ts > ?",
+                      (contact.display(contact_raw), key, link_id,
+                       time.time() - LINK_LOGIN_TTL))
     return {"verified": True, "contact_key": key}
 
 

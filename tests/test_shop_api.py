@@ -268,3 +268,22 @@ def test_a_cancelled_checkout_gives_the_shelf_back_without_being_fetched(
     retry = freshkart.post("/order", headers=_auth(buyer_mandate),
                            json={"cart_id": cart2})
     assert retry.status_code == 201, retry.text
+
+
+def test_the_third_merchant_boots_with_its_own_catalog_and_cost_book(env):
+    """SilkRoute: a competitor in the same domain, so cross-shop comparison is
+    a real contest. Same codebase, its own config - and its catalog overlaps
+    Loomcraft's (kurti, dupatta, kurta) at different prices."""
+    from fastapi.testclient import TestClient
+    from shop.app import create_app
+
+    env.setenv("SHOP", "apparel2")
+    silk = TestClient(create_app(), raise_server_exceptions=True)
+    catalog = silk.get("/catalog").json()
+    assert len(catalog) == 8
+    kurti = next(p for p in catalog if "kurti" in p["tags"])
+    assert kurti["price_paise"] == 129900          # undercuts Loomcraft's 149900
+    assert "cost_price_paise" not in kurti         # the cost book stays private
+    manifest = silk.get("/.well-known/agent-commerce.json").json()
+    assert "silkroute" in str(manifest["merchant"]).lower() or \
+           "SilkRoute" in str(manifest["merchant"])

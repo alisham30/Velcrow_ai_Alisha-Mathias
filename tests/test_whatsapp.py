@@ -668,3 +668,29 @@ def test_a_goal_without_a_budget_asks_and_the_reply_completes_it(
     outreach.handle_webhook(raw2, sig2)
     assert goals[-1] == "find me a cotton kurti under 1500"   # combined, not restarted
     assert any(m["kind"] == "goal_options" for m in outreach.outbox(10))
+
+
+def test_the_router_is_told_what_each_shop_actually_sells(wa, inline_spawn, monkeypatch):
+    """Found live: 'are there any cushions' stayed at the grocer, because the
+    router's menu had names and categories but no goods. The menu now carries
+    each shop's own catalog vocabulary."""
+    from agent import orchestrator
+
+    outreach._MENU_CACHE.update(ts=0.0, menu={})
+    seen_menus = []
+
+    def spy_route(text, current, shops, fallback):
+        seen_menus.append(shops)
+        return {"mode": "shop", "shop": "grocery"}
+
+    monkeypatch.setattr(orchestrator, "route", spy_route)
+    monkeypatch.setattr(outreach, "_agent_turn",
+                        lambda chat, text, key: [{"kind": "message", "text": "ok"}])
+    raw, sig = _signed(_text_payload("are there any cushions", "wamid.m1"))
+    outreach.handle_webhook(raw, sig)
+    assert seen_menus, "router was never consulted"
+    menu = seen_menus[0]
+    # every entry names goods, not just a category (Routed serves freshkart's
+    # catalog for each URL in tests - the point is the vocabulary is THERE)
+    assert all(": sells " in v for v in menu.values()), menu
+    assert any("citrus" in v or "staples" in v for v in menu.values())

@@ -423,22 +423,26 @@ def route_wa(text: str, current_key: str, shops: dict[str, str]) -> dict[str, st
     fixed enum validated by the caller; raises LLMUnavailable so the caller
     can fall back to deterministic routing.
     """
-    menu = "; ".join(f"'{k}' = {v}" for k, v in shops.items())
+    menu = "\n".join(f"- {k}: {v}" for k, v in shops.items())
     try:
         resp = _client().chat.completions.create(
             model=MODEL, temperature=0,
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content":
-                    'Answer ONLY JSON like {"mode": "shop", "shop": "<key>"}. '
-                    'mode "goal" = the shopper states a WANT to satisfy at the best '
-                    "shop - typically naming a budget, asking to find/compare, or "
-                    "not caring where it comes from. "
-                    'mode "shop" = an instruction or question within one shop '
-                    "(add/remove/show/checkout/smalltalk). "
-                    f"Shops: {menu}. Conversation is currently at '{current_key}'; "
-                    "for mode shop, pick the shop the message is about, else the "
-                    "current one."},
+                    'Route one shopper message. Answer ONLY JSON: '
+                    '{"mode": "shop"|"goal", "shop": "<key>"}.\n\n'
+                    'mode "goal": the shopper wants the BEST option across stores - '
+                    'they name a budget or say find/compare/cheapest '
+                    '("find me a kurti under 1500").\n'
+                    'mode "shop": everything else.\n\n'
+                    "shop: read what each shop SELLS below and pick the shop whose "
+                    "goods match the message. A message that names a product "
+                    '("dupattas", "any cushions?") ALWAYS goes to a shop that sells '
+                    "that product - even if the conversation is currently elsewhere. "
+                    "Keep the current shop ONLY when the message names no goods at "
+                    'all (greetings, "checkout", "what is in my basket").\n\n'
+                    f"Shops:\n{menu}\n\nCurrent shop: {current_key}"},
                 {"role": "user", "content": text[:500]},
             ])
     except Exception as exc:

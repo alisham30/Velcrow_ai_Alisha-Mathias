@@ -1,0 +1,98 @@
+[
+  {
+    "id": "lemons-1kg",
+    "name": "Lemons (1 kg)",
+    "category": "produce",
+    "price_paise": 3900,
+    "cost_price_paise": 2600,
+    "image_url": "/img/lemons.jpg",
+    "description": "Mandi-fresh country lemons, sorted daily.",
+    "tags": ["citrus", "fruit", "fresh"],
+    "stock": 22,
+    "exact_only": false
+  },
+  {
+    "id": "tomatoes-1kg",
+    "name": "Tomatoes (1 kg)",
+    "category": "produce",
+    "price_paise": 3500,
+    "cost_price_paise": 2300,
+    "image_url": "/img/tomatoes.jpg",
+    "description": "Firm hybrid tomatoes from the morning mandi.",
+    "tags": ["vegetable", "fresh"],
+    "stock": 30,
+    "exact_only": false
+  },
+  {
+    "id": "basmati-5kg",
+    "name": "Basmati Rice (5 kg)",
+    "category": "staples",
+    "price_paise": 39900,
+    "cost_price_paise": 30500,
+    "image_url": "/img/basmati.jpg",
+    "description": "Aged basmati, long grain, 5 kg bag.",
+    "tags": ["rice", "staples"],
+    "stock": 9,
+    "exact_only": false
+  },
+  {
+    "id": "atta-5kg",
+    "name": "Whole Wheat Atta (5 kg)",
+    "category": "staples",
+    "price_paise": 28900,
+    "cost_price_paise": 21500,
+    "image_url": "/img/atta.jpg",
+    "description": "Chakki-ground whole wheat atta, 5 kg.",
+    "tags": ["atta", "staples"],
+    "stock": 14,
+    "exact_only": false
+  },
+  {
+    "id": "honey-500g",
+    "name": "Wild Honey (500 g)",
+    "category": "pantry",
+    "price_paise": 19900,
+    "cost_price_paise": 13400,
+    "image_url": "/img/honey.jpg",
+    "description": "Single-origin wild honey, raw and unfiltered.",
+    "tags": ["honey", "pantry"],
+    "stock": 12,
+    "exact_only": false
+  },
+  {
+    "id": "filter-coffee-250g",
+    "name": "Filter Coffee Powder (250 g)",
+    "category": "pantry",
+    "price_paise": 16900,
+    "cost_price_paise": 11800,
+    "image_url": "/img/coffee.jpg",
+    "description": "80:20 coffee-chicory blend, medium roast.",
+    "tags": ["coffee", "pantry"],
+    "stock": 10,
+    "exact_only": false
+  },
+  {
+    "id": "jaggery-1kg",
+    "name": "Organic Jaggery (1 kg)",
+    "category": "pantry",
+    "price_paise": 12900,
+    "cost_price_paise": 8600,
+    "image_url": "/img/jaggery.jpg",
+    "description": "Chemical-free cane jaggery blocks.",
+    "tags": ["jaggery", "pantry", "organic"],
+    "stock": 16,
+    "exact_only": false
+  },
+  {
+    "id": "poha-1kg",
+    "name": "Thick Poha (1 kg)",
+    "category": "staples",
+    "price_paise": 7900,
+    "cost_price_paise": 5200,
+    "image_url": "/img/poha.jpg",
+    "description": "Thick flattened rice, breakfast grade.",
+    "tags": ["poha", "staples"],
+    "stock": 20,
+    "exact_only": false
+  }
+]

@@ -1,0 +1,29 @@
+shop_id: dailymandi
+brand: DailyMandi
+category: grocery
+variant_kind: pack
+catalog_file: catalogs/grocery2.json
+theme:
+  primary: "#1e5631"
+  accent: "#e8a13a"
+capabilities:
+  checkout: true
+  discounts: true
+  reservations: false
+  restock_notify: true
+  human_approval: true
+  variants: pack
+coupons:
+  - code: MANDI40
+    kind: flat
+    value_paise: 4000
+    min_cart_paise: 39900
+    stackable: false
+    description: "Rs 40 off orders over Rs 399"
+  - code: SABZI8
+    kind: percent
+    value_pct: 8
+    cap_paise: 12000
+    min_cart_paise: 29900
+    stackable: false
+    description: "8% off orders over Rs 299, up to Rs 120"

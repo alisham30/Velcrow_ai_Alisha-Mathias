@@ -1,0 +1,190 @@
+[
+  {
+    "id": "kurti-mulmul-rose",
+    "name": "Rose Mulmul Cotton Kurti",
+    "category": "women",
+    "price_paise": 129900,
+    "cost_price_paise": 82000,
+    "image_url": "/img/kurti-rose.jpg",
+    "description": "Breathable mulmul cotton kurti in dusty rose, relaxed A-line cut.",
+    "tags": [
+      "kurti",
+      "cotton",
+      "women"
+    ],
+    "variants": [
+      {
+        "label": "S",
+        "stock": 6
+      },
+      {
+        "label": "M",
+        "stock": 9
+      },
+      {
+        "label": "L",
+        "stock": 4
+      },
+      {
+        "label": "XL",
+        "stock": 0,
+        "restock_date": "2026-09-08"
+      }
+    ],
+    "exact_only": false
+  },
+  {
+    "id": "kurti-chikankari-white",
+    "name": "White Chikankari Kurti",
+    "category": "women",
+    "price_paise": 189900,
+    "cost_price_paise": 118000,
+    "image_url": "/img/kurti-chikankari.jpg",
+    "description": "Hand-embroidered Lucknowi chikankari on fine white cotton.",
+    "tags": [
+      "kurti",
+      "cotton",
+      "women",
+      "embroidered"
+    ],
+    "variants": [
+      {
+        "label": "S",
+        "stock": 3
+      },
+      {
+        "label": "M",
+        "stock": 7
+      },
+      {
+        "label": "L",
+        "stock": 5
+      }
+    ],
+    "exact_only": false
+  },
+  {
+    "id": "dupatta-silk-gold",
+    "name": "Gold Tissue Silk Dupatta",
+    "category": "women",
+    "price_paise": 119900,
+    "cost_price_paise": 74000,
+    "image_url": "/img/dupatta-gold.jpg",
+    "description": "Lightweight tissue silk dupatta with a woven gold border.",
+    "tags": [
+      "dupatta",
+      "silk",
+      "women"
+    ],
+    "stock": 11,
+    "exact_only": false
+  },
+  {
+    "id": "saree-cotton-indigo",
+    "name": "Indigo Handloom Cotton Saree",
+    "category": "women",
+    "price_paise": 259900,
+    "cost_price_paise": 164000,
+    "image_url": "/img/saree-indigo.jpg",
+    "description": "Handloom cotton saree in deep indigo with a plain woven pallu.",
+    "tags": [
+      "saree",
+      "cotton",
+      "women",
+      "handloom"
+    ],
+    "stock": 5,
+    "exact_only": false
+  },
+  {
+    "id": "kurta-men-cotton",
+    "name": "Men's Cotton Kurta (Sand)",
+    "category": "men",
+    "price_paise": 109900,
+    "cost_price_paise": 68000,
+    "image_url": "/img/kurta-sand.jpg",
+    "description": "Straight-cut cotton kurta in sand, side pockets, mandarin collar.",
+    "tags": [
+      "kurta",
+      "cotton",
+      "men"
+    ],
+    "variants": [
+      {
+        "label": "M",
+        "stock": 8
+      },
+      {
+        "label": "L",
+        "stock": 6
+      },
+      {
+        "label": "XL",
+        "stock": 3
+      }
+    ],
+    "exact_only": false
+  },
+  {
+    "id": "scarf-silk-paisley",
+    "name": "Paisley Silk Scarf",
+    "category": "accessories",
+    "price_paise": 89900,
+    "cost_price_paise": 52000,
+    "image_url": "/img/scarf-paisley.jpg",
+    "description": "Printed paisley scarf in soft twill silk, hand-rolled edges.",
+    "tags": [
+      "scarf",
+      "silk",
+      "accessories"
+    ],
+    "stock": 14,
+    "exact_only": false
+  },
+  {
+    "id": "jutti-mojari-tan",
+    "name": "Tan Leather Jutti",
+    "category": "footwear",
+    "price_paise": 139900,
+    "cost_price_paise": 86000,
+    "image_url": "/img/jutti-tan.jpg",
+    "description": "Hand-stitched tan leather jutti with subtle threadwork.",
+    "tags": [
+      "jutti",
+      "footwear",
+      "leather"
+    ],
+    "variants": [
+      {
+        "label": "38",
+        "stock": 4
+      },
+      {
+        "label": "40",
+        "stock": 6
+      },
+      {
+        "label": "42",
+        "stock": 5
+      }
+    ],
+    "exact_only": true
+  },
+  {
+    "id": "stole-pashmina-ivory",
+    "name": "Ivory Pashmina Stole",
+    "category": "accessories",
+    "price_paise": 299900,
+    "cost_price_paise": 196000,
+    "image_url": "/img/stole-ivory.jpg",
+    "description": "Fine-count pashmina stole in ivory, diamond weave.",
+    "tags": [
+      "stole",
+      "pashmina",
+      "wool",
+      "accessories"
+    ],
+    "stock": 3,
+    "exact_only": false
+  }
+]

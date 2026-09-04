@@ -16,8 +16,8 @@ So we flipped the design. Instead of one agent in one place, VelcrowAI puts **on
 
 - **On the shop page** - a widget you talk to in plain language; it searches, adds, claims coupons, and quotes.
 - **On WhatsApp** - text the agent like a friend ("3 chanderi dupattas"), and it shops, quotes, and sends a tap-to-approve button. It even reaches out first: when your missing item is restocked, it completes your basket and messages you the exact total.
-- **Across shops** - say "find me a cotton kurti under 1500" and it compares every store, ranks the options, and your 1500 becomes a hard cap the wallet itself enforces.
-- **To other AIs** - a stranger's agent that has never seen these shops can discover them from one manifest file and buy through the industry's Agentic Commerce Protocol.
+- **Across shops** - say "find me a cotton kurti under 1500" and it compares every store in the network: six merchants across grocery, apparel and home, every domain with a direct competitor. Options are ranked by price, fit and earned trust, anything over budget is refused with the arithmetic attached - and your 1500 becomes a hard cap the wallet itself enforces.
+- **To other AIs** - a stranger's agent that has never seen these shops can discover them from one manifest file and buy through the industry's Agentic Commerce Protocol. And any MCP client - Claude Desktop included - can shop the whole network through the bundled MCP server: same shops, same quotes, same wallet.
 - **For the merchant** - a growth agent wakes every hour, reads real sales and lost-demand numbers, simulates every idea, and either proposes a restock or a campaign with the numbers attached - or honestly says "nothing worth doing."
 
 Same agent, every door. That is how an agent increases commerce instead of just answering questions.
@@ -30,7 +30,7 @@ The proof it is an agent and not a script ships with the repo: run `lab/determin
 
 ### Honest by construction
 
-Razorpay runs in test mode and WhatsApp on Meta's test tier - real APIs, no real rupees, no strangers reachable. 395 tests pass. And every real bug we hit building this, including the ones found live by a real shopper mid-demo, is written up in `BREAKAGE.md` with the fix and a regression test - because an audit trail you can attack, and a failure log we kept, are worth more than a demo that pretends nothing ever broke.
+Razorpay runs in test mode and WhatsApp on Meta's test tier - real APIs, no real rupees, no strangers reachable. 404 tests pass. And every real bug we hit building this, including the ones found live by a real shopper mid-demo, is written up in `BREAKAGE.md` with the fix and a regression test - because an audit trail you can attack, and a failure log we kept, are worth more than a demo that pretends nothing ever broke.
 
 ## Architecture
 
@@ -57,8 +57,19 @@ The shopper never creates an account, never types a password or card number, and
 ## Run it
 
 ```
-.\run_all.ps1          # six services, one command
+.\run_all.ps1          # ten services, one command
 .\run_all.ps1 -Stop    # stop everything
 ```
 
-Storefronts at http://localhost:5173 and :5174, buyer app and audit at :5175, merchant consoles at /console on each storefront. Razorpay is test mode; WhatsApp is Meta's test number tier. No real money moves anywhere in this project.
+The network: FreshKart and DailyMandi (grocery, :8001/:8005), Loomcraft and SilkRoute (apparel, :8002/:8004), UrbanNest and MittiCraft (home, :8006/:8007) - every domain a two-merchant contest.
+
+To shop the network from Claude Desktop (or any MCP client), point it at the bundled MCP server - `mcp_server/velcrow_mcp.py`. It is a thin adapter over the same endpoints: quotes come from the shops, and the only tool that can move money is `pay_quote`, which demands the exact quoted amount and runs the same five-check wallet (a wrong amount is refused with `PRICE_CHANGED`). Claude Desktop config:
+
+```json
+{"mcpServers": {"velcrow": {
+    "command": "<repo>\\.venv\\Scripts\\python.exe",
+    "args": ["-m", "mcp_server.velcrow_mcp"],
+    "cwd": "<repo>"}}}
+```
+
+Storefronts at http://localhost:5173 and :5174, buyer app and audit at :5175, merchant consoles at /console on each storefront. The four newer merchants have no storefront by design - they joined the network API-first, which is the point: an agent can shop them anyway. Razorpay is test mode; WhatsApp is Meta's test number tier. No real money moves anywhere in this project.

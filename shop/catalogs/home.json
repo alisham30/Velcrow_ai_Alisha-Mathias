@@ -1,0 +1,92 @@
+[
+  {
+    "id": "bedsheet-cotton-king",
+    "name": "King Cotton Bedsheet Set",
+    "category": "bedroom",
+    "price_paise": 219900,
+    "cost_price_paise": 141000,
+    "image_url": "/img/bedsheet-king.jpg",
+    "description": "300-thread-count cotton bedsheet with two pillow covers.",
+    "tags": ["bedsheet", "cotton", "bedroom"],
+    "variants": [
+      {"label": "Queen", "stock": 7},
+      {"label": "King", "stock": 5}
+    ],
+    "exact_only": false
+  },
+  {
+    "id": "cushion-cover-set4",
+    "name": "Linen Cushion Covers (set of 4)",
+    "category": "living",
+    "price_paise": 129900,
+    "cost_price_paise": 82000,
+    "image_url": "/img/cushions-linen.jpg",
+    "description": "Stonewashed linen cushion covers, 16 inch, set of four.",
+    "tags": ["cushion", "linen", "living"],
+    "stock": 9,
+    "exact_only": false
+  },
+  {
+    "id": "lamp-brass-table",
+    "name": "Brass Table Lamp",
+    "category": "lighting",
+    "price_paise": 349900,
+    "cost_price_paise": 228000,
+    "image_url": "/img/lamp-brass.jpg",
+    "description": "Solid brass table lamp with a cotton drum shade.",
+    "tags": ["lamp", "brass", "lighting"],
+    "stock": 4,
+    "exact_only": false
+  },
+  {
+    "id": "rug-jute-5x7",
+    "name": "Jute Area Rug (5 x 7)",
+    "category": "living",
+    "price_paise": 429900,
+    "cost_price_paise": 286000,
+    "image_url": "/img/rug-jute.jpg",
+    "description": "Hand-braided natural jute rug, 5 by 7 feet.",
+    "tags": ["rug", "jute", "living"],
+    "stock": 3,
+    "exact_only": false
+  },
+  {
+    "id": "curtain-sheer-pair",
+    "name": "Sheer Curtains (pair)",
+    "category": "living",
+    "price_paise": 159900,
+    "cost_price_paise": 98000,
+    "image_url": "/img/curtains-sheer.jpg",
+    "description": "Ivory sheer curtains, rod pocket, 7 feet, pair.",
+    "tags": ["curtain", "living"],
+    "variants": [
+      {"label": "7ft", "stock": 8},
+      {"label": "9ft", "stock": 0, "restock_date": "2026-09-10"}
+    ],
+    "exact_only": false
+  },
+  {
+    "id": "diffuser-ceramic",
+    "name": "Ceramic Oil Diffuser",
+    "category": "decor",
+    "price_paise": 89900,
+    "cost_price_paise": 54000,
+    "image_url": "/img/diffuser.jpg",
+    "description": "Matte ceramic ultrasonic diffuser, warm light.",
+    "tags": ["diffuser", "decor"],
+    "stock": 11,
+    "exact_only": false
+  },
+  {
+    "id": "mugs-stoneware-set2",
+    "name": "Stoneware Mugs (set of 2)",
+    "category": "kitchen",
+    "price_paise": 79900,
+    "cost_price_paise": 46000,
+    "image_url": "/img/mugs-stoneware.jpg",
+    "description": "Glazed stoneware mugs, 300 ml, speckled finish.",
+    "tags": ["mug", "kitchen", "stoneware"],
+    "stock": 13,
+    "exact_only": false
+  }
+]

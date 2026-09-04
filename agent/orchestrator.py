@@ -61,19 +61,32 @@ AGENTS: dict[str, dict[str, str]] = {
 }
 
 
+_GOALISH = None  # compiled lazily
+
+
 def route(text: str, current_key: str | None, shops: dict[str, str],
-          fallback: Callable[[str, str | None], str]) -> dict[str, str]:
+          choose_shop: Callable[[str, str | None], str]) -> dict[str, str]:
     """Judge one message: {'mode': 'shop'|'goal', 'shop': key}.
 
-    The judgment is a model call (routing is judgment); the answer space is a
-    fixed enum; and a model outage falls back to the deterministic scorer -
-    being down may never misroute a shopper.
+    Division of labour, learned the hard way: the MODE (is this an
+    instruction, or a goal to satisfy at the best store?) is judgment and
+    belongs to the model, with a regex fallback so an outage cannot stall a
+    shopper. The SHOP is a vocabulary lookup against the catalogs - lexical
+    work the model kept fumbling ("Dupattas" stayed at the grocer) - so it
+    belongs to deterministic code that cannot miss a word it contains.
     """
-    from agent import llm
+    global _GOALISH
+    if _GOALISH is None:
+        import re
+        _GOALISH = re.compile(
+            r"\b(find me|find|cheapest|best price|compare)\b"
+            r"|\b(under|below|upto|up to|max)\s*(rs\.?|inr|₹)?\s*\d", re.I)
     try:
-        return llm.route_wa(text, current_key or "grocery", shops)
+        from agent import llm
+        mode = llm.route_wa(text, current_key or "grocery", shops)["mode"]
     except Exception:
-        return {"mode": "shop", "shop": fallback(text, current_key)}
+        mode = "goal" if _GOALISH.search(text) else "shop"
+    return {"mode": mode, "shop": choose_shop(text, current_key)}
 
 
 def handoff(surface: str, to_agent: str, why: str, **data: Any) -> None:
