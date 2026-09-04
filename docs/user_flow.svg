@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="470" viewBox="0 0 1180 470" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#5c6a64"/></marker></defs>
+<rect width="1180" height="470" fill="#f4f6f4" rx="6"/>
+<text x="590" y="34" font-size="19" fill="#12181c" text-anchor="middle" font-weight="700">One shopper&#8217;s week - the user flow</text>
+<rect x="40" y="70" width="258" height="74" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="169.0" y="95.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">1. Browse and chat</text>
+<text x="169.0" y="111.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">the widget adds, claims the</text>
+<text x="169.0" y="127.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">best coupon, says it once</text>
+<line x1="298" y1="107" x2="330" y2="107" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="330" y="70" width="258" height="74" rx="4" fill="#f5e2dd" stroke="#a8341f" stroke-width="1.5"/>
+<text x="459.0" y="95.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">2. Log in by phone</text>
+<text x="459.0" y="111.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">OTP arrives on WhatsApp;</text>
+<text x="459.0" y="127.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">never a password</text>
+<line x1="588" y1="107" x2="620" y2="107" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="620" y="70" width="258" height="74" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="749.0" y="95.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">3. Ask for 6, get 5</text>
+<text x="749.0" y="111.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">the shortfall is recorded</text>
+<text x="749.0" y="127.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">with your basket attached</text>
+<line x1="878" y1="107" x2="910" y2="107" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="910" y="70" width="258" height="74" rx="4" fill="#d9e8e1" stroke="#0f6b52" stroke-width="2.0"/>
+<text x="1039.0" y="95.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">4. Restock arrives</text>
+<text x="1039.0" y="111.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">your basket is completed;</text>
+<text x="1039.0" y="127.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">WhatsApp quotes the total</text>
+<rect x="40" y="230" width="258" height="74" rx="4" fill="#d9e8e1" stroke="#0f6b52" stroke-width="2.0"/>
+<text x="169.0" y="255.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">5. Tap Approve</text>
+<text x="169.0" y="271.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">five wallet checks;</text>
+<text x="169.0" y="287.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">receipt in the chat</text>
+<line x1="298" y1="267" x2="330" y2="267" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="330" y="230" width="258" height="74" rx="4" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.5"/>
+<text x="459.0" y="255.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">6. Text the agent</text>
+<text x="459.0" y="271.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">&#8220;3 chanderi dupattas&#8221; -</text>
+<text x="459.0" y="287.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">it knows which shop</text>
+<line x1="588" y1="267" x2="620" y2="267" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="620" y="230" width="258" height="74" rx="4" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.5"/>
+<text x="749.0" y="255.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">7. State a goal</text>
+<text x="749.0" y="271.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">&#8220;kurti under 1500&#8221; - the cap</text>
+<text x="749.0" y="287.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">becomes the wallet&#8217;s mandate</text>
+<line x1="878" y1="267" x2="910" y2="267" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="910" y="230" width="258" height="74" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1039.0" y="255.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">8. Orders page</text>
+<text x="1039.0" y="271.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">every purchase names the</text>
+<text x="1039.0" y="287.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">door it came through</text>
+<path d="M 1039.0 144 L 1039.0 187 L 169.0 187 L 169.0 226" fill="none" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="590" y="350" font-size="13" fill="#5c6a64" text-anchor="middle">The shopper never creates an account, never types a password or a card number,</text>
+<text x="590" y="370" font-size="13" fill="#5c6a64" text-anchor="middle">and never has to trust anyone: every charge is an exact amount they saw and tapped, checked by code.</text>
+<text x="590" y="420" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">widget  |  WhatsApp  |  cross-shop goal  -  one brain, many mouths, one wallet</text>
+</svg>

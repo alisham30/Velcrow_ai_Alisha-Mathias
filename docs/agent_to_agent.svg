@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="1150" viewBox="0 0 1180 1150" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#5c6a64"/></marker></defs>
+<rect width="1180" height="1150" fill="#f4f6f4" rx="6"/>
+<text x="590" y="34" font-size="19" fill="#12181c" text-anchor="middle" font-weight="700">Agent to agent - who talks to whom</text>
+<text x="590" y="56" font-size="12" fill="#5c6a64" text-anchor="middle">the two shops never speak to each other; buying and selling sides meet only at published endpoints, and money only at the wallet</text>
+<rect x="75" y="76" width="190" height="44" rx="4" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.5"/>
+<text x="170.0" y="94.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">Buyer&#8217;s agent</text>
+<text x="170.0" y="110.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">buying side - code</text>
+<line x1="170" y1="120" x2="170" y2="1116" stroke="#c9d3ce" stroke-width="1" stroke-dasharray="3,4"/>
+<rect x="425" y="76" width="190" height="44" rx="4" fill="#f5e2dd" stroke="#a8341f" stroke-width="1.5"/>
+<text x="520.0" y="94.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">Shop sales policy</text>
+<text x="520.0" y="110.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">selling side - cost book</text>
+<line x1="520" y1="120" x2="520" y2="1116" stroke="#c9d3ce" stroke-width="1" stroke-dasharray="3,4"/>
+<rect x="735" y="76" width="190" height="44" rx="4" fill="#d9e8e1" stroke="#0f6b52" stroke-width="2.0"/>
+<text x="830.0" y="94.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">wallet.py</text>
+<text x="830.0" y="110.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">5 checks</text>
+<line x1="830" y1="120" x2="830" y2="1116" stroke="#c9d3ce" stroke-width="1" stroke-dasharray="3,4"/>
+<rect x="975" y="76" width="190" height="44" rx="4" fill="#d9e8e1" stroke="#0f6b52" stroke-width="2.0"/>
+<text x="1070.0" y="94.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">Hash chains</text>
+<text x="1070.0" y="110.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">both sides&#8217; record</text>
+<line x1="1070" y1="120" x2="1070" y2="1116" stroke="#c9d3ce" stroke-width="1" stroke-dasharray="3,4"/>
+<rect x="60" y="146" width="1060" height="26" rx="3" fill="#e7ece9"/>
+<text x="590" y="164.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="700">EXCHANGE A - two agents haggle (negotiation)</text>
+<line x1="170" y1="204" x2="520" y2="204" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="345.0" y="196.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">opening offer at 80% of list</text>
+<text x="345.0" y="219" font-size="11" fill="#5c6a64" text-anchor="middle">the ceiling stays private; the mandate is already capped at ceiling x qty</text>
+<line x1="520" y1="264" x2="170" y2="264" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="345.0" y="256.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">refuse - and NAME the floor (cost + 12%) - or counter at target</text>
+<text x="345.0" y="279" font-size="11" fill="#5c6a64" text-anchor="middle">policy is the cost book, not a mood</text>
+<line x1="170" y1="324" x2="520" y2="324" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="345.0" y="316.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">stands its ground: the same number, twice</text>
+<text x="345.0" y="339" font-size="11" fill="#5c6a64" text-anchor="middle">a repeated floor-clearing offer closes the deal; an impossible ceiling walks</text>
+<line x1="520" y1="384" x2="170" y2="384" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="345.0" y="376.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">deal - HMAC-signed price token</text>
+<text x="345.0" y="399" font-size="11" fill="#5c6a64" text-anchor="middle">item, variant, qty, price; 120 seconds; spendable exactly once</text>
+<line x1="170" y1="444" x2="830" y2="444" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="500.0" y="436.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">redeem at /order - the same door as every sale</text>
+<line x1="830" y1="488" x2="520" y2="488" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="675.0" y="480.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">charge exactly the agreed amount, or refuse</text>
+<line x1="830" y1="532" x2="1070" y2="532" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="950.0" y="524.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">both chains record the same price, independently</text>
+<rect x="60" y="562" width="1060" height="26" rx="3" fill="#e7ece9"/>
+<text x="590" y="580.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="700">EXCHANGE B - the shop&#8217;s machines call the shopper&#8217;s agent (restock)</text>
+<line x1="520" y1="620" x2="170" y2="620" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="345.0" y="612.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">callback: who was refused, how many, from which basket</text>
+<text x="345.0" y="635" font-size="11" fill="#5c6a64" text-anchor="middle">the shop reports; it never decides who gets contacted</text>
+<line x1="170" y1="680" x2="520" y2="680" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="345.0" y="672.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">the refused units go back INTO that basket</text>
+<text x="345.0" y="695" font-size="11" fill="#5c6a64" text-anchor="middle">the shopper&#8217;s original ask - no money moved</text>
+<line x1="170" y1="740" x2="1070" y2="740" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="620.0" y="732.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">one WhatsApp message: completed basket, exact total, Approve button</text>
+<text x="620.0" y="755" font-size="11" fill="#5c6a64" text-anchor="middle">say-once per person per item; declining is final</text>
+<line x1="170" y1="800" x2="830" y2="800" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="500.0" y="792.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">the tap - Meta-signed, sender-checked</text>
+<text x="500.0" y="815" font-size="11" fill="#5c6a64" text-anchor="middle">it can authorise only the amount the message named; then the same 5 checks</text>
+<rect x="60" y="846" width="1060" height="26" rx="3" fill="#e7ece9"/>
+<text x="590" y="864.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="700">EXCHANGE C - a stranger&#8217;s agent, no introductions</text>
+<line x1="170" y1="904" x2="520" y2="904" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="345.0" y="896.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">reads /.well-known/agent-commerce.json, opens an ACP session</text>
+<text x="345.0" y="919" font-size="11" fill="#5c6a64" text-anchor="middle">industry shape, version 2026-04-17; capabilities negotiated, not assumed</text>
+<line x1="520" y1="964" x2="170" y2="964" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="345.0" y="956.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">typed answers, including failure</text>
+<text x="345.0" y="979" font-size="11" fill="#5c6a64" text-anchor="middle">out_of_stock arrives with a recovery path, not a dead end</text>
+<line x1="170" y1="1024" x2="830" y2="1024" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="500.0" y="1016.0" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">complete = the same place_order / settle_payment as a native sale</text>
+<text x="500.0" y="1039" font-size="11" fill="#5c6a64" text-anchor="middle">a protocol is a dialect, never a second door</text>
+</svg>

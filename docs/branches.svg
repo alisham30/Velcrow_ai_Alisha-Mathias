@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="560" viewBox="0 0 1180 560" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#5c6a64"/></marker></defs>
+<rect width="1180" height="560" fill="#f4f6f4" rx="6"/>
+<text x="590" y="34" font-size="19" fill="#12181c" text-anchor="middle" font-weight="700">Branches of the project</text>
+<rect x="490" y="54" width="200" height="40" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="590.0" y="70.4" font-size="14" fill="#12181c" text-anchor="middle" font-weight="600">VelcrowAI</text>
+<text x="590.0" y="87.4" font-size="12.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">one repo, six services</text>
+<rect x="40" y="140" width="215" height="36" rx="4" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.5"/>
+<text x="147.5" y="162.9" font-size="14" fill="#12181c" text-anchor="middle" font-weight="600">Agents</text>
+<path d="M 590 94 L 590 116 L 147.5 116 L 147.5 136" fill="none" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="40" y="192" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="147.5" y="211.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Shopping assistant</text>
+<text x="147.5" y="227.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">agent/runtime.py, tools.py, llm.py</text>
+<rect x="40" y="248" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="147.5" y="267.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Growth agent</text>
+<text x="147.5" y="283.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">agent/merchant.py</text>
+<rect x="40" y="304" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="147.5" y="323.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Buyer agent</text>
+<text x="147.5" y="339.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">agent/buyer.py</text>
+<rect x="40" y="360" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="147.5" y="379.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Orchestrator</text>
+<text x="147.5" y="395.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">agent/orchestrator.py</text>
+<rect x="40" y="416" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="147.5" y="435.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">WhatsApp outreach</text>
+<text x="147.5" y="451.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">agent/outreach.py, common/whatsapp.py</text>
+<rect x="267" y="140" width="215" height="36" rx="4" fill="#f5e2dd" stroke="#a8341f" stroke-width="1.5"/>
+<text x="374.5" y="162.9" font-size="14" fill="#12181c" text-anchor="middle" font-weight="600">Trust core</text>
+<path d="M 590 94 L 590 116 L 374.5 116 L 374.5 136" fill="none" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="267" y="192" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="374.5" y="211.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Mandates + approvals</text>
+<text x="374.5" y="227.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">common/mandate.py, approval.py</text>
+<rect x="267" y="248" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="374.5" y="267.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">The wallet</text>
+<text x="374.5" y="283.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">common/wallet.py</text>
+<rect x="267" y="304" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="374.5" y="323.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Hash chains</text>
+<text x="374.5" y="339.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">common/chainlog.py</text>
+<rect x="267" y="360" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="374.5" y="379.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Trust scores</text>
+<text x="374.5" y="395.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">common/trust.py</text>
+<rect x="267" y="416" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="374.5" y="435.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Bandit learning</text>
+<text x="374.5" y="451.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">common/bandit.py</text>
+<rect x="494" y="140" width="215" height="36" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="601.5" y="162.9" font-size="14" fill="#12181c" text-anchor="middle" font-weight="600">Shops</text>
+<path d="M 590 94 L 590 116 L 601.5 116 L 601.5 136" fill="none" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="494" y="192" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="601.5" y="211.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Shop API</text>
+<text x="601.5" y="227.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">shop/app.py, shop/db.py</text>
+<rect x="494" y="248" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="601.5" y="267.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Coupon engine</text>
+<text x="601.5" y="283.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">shop/coupons.py</text>
+<rect x="494" y="304" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="601.5" y="323.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Negotiation policy</text>
+<text x="601.5" y="339.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">shop/negotiation.py</text>
+<rect x="494" y="360" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="601.5" y="379.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">ACP checkout</text>
+<text x="601.5" y="395.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">shop/acp.py</text>
+<rect x="721" y="140" width="215" height="36" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="828.5" y="162.9" font-size="14" fill="#12181c" text-anchor="middle" font-weight="600">Surfaces</text>
+<path d="M 590 94 L 590 116 L 828.5 116 L 828.5 136" fill="none" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="721" y="192" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="828.5" y="211.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Storefronts + consoles</text>
+<text x="828.5" y="227.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">web-shop/</text>
+<rect x="721" y="248" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="828.5" y="267.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Buyer app + audit room</text>
+<text x="828.5" y="283.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">web-agent/</text>
+<rect x="721" y="304" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="828.5" y="323.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Embedded widget</text>
+<text x="828.5" y="339.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">agent/static/velcrow.js</text>
+<rect x="948" y="140" width="215" height="36" rx="4" fill="#d9e8e1" stroke="#0f6b52" stroke-width="2.0"/>
+<text x="1055.5" y="162.9" font-size="14" fill="#12181c" text-anchor="middle" font-weight="600">Proof</text>
+<path d="M 590 94 L 590 116 L 1055.5 116 L 1055.5 136" fill="none" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="948" y="192" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1055.5" y="211.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Determinism check</text>
+<text x="1055.5" y="227.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">lab/determinism_check.py</text>
+<rect x="948" y="248" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1055.5" y="267.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Revenue Lab</text>
+<text x="1055.5" y="283.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">lab/revenue_lab.py</text>
+<rect x="948" y="304" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1055.5" y="323.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Negotiation demo</text>
+<text x="1055.5" y="339.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">lab/negotiate_demo.py</text>
+<rect x="948" y="360" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1055.5" y="379.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Third-party ACP buyer</text>
+<text x="1055.5" y="395.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">lab/third_party_buyer.py</text>
+<rect x="948" y="416" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1055.5" y="435.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">395 tests</text>
+<text x="1055.5" y="451.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">tests/</text>
+<rect x="948" y="472" width="215" height="46" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1055.5" y="491.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Honest failure log</text>
+<text x="1055.5" y="507.125" font-size="11.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">BREAKAGE.md</text>
+</svg>

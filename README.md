@@ -12,122 +12,25 @@ The result runs end to end today: a shopper is refused for stock, the shortfall 
 
 ## Architecture
 
-```mermaid
-flowchart TB
-  subgraph T1["TIER 1 - PEOPLE (nothing below acts without one)"]
-    direction LR
-    SH["Shopper<br/>widget or WhatsApp"] ~~~ ME["Merchant<br/>decides proposals"] ~~~ BU["Buyer with a goal<br/>states a budget"] ~~~ ST["A stranger's AI<br/>reads one manifest"]
-  end
-
-  subgraph T2["TIER 2 - SURFACES"]
-    direction LR
-    S1["FreshKart + widget<br/>:5173"] ~~~ S2["Loomcraft + widget<br/>:5174"] ~~~ S3["Consoles + Buyer app<br/>+ Audit  :5175"] ~~~ S4["WhatsApp<br/>Meta Cloud API"]
-  end
-
-  subgraph T3["TIER 3 - THE VELCROWAI LAYER  :8003"]
-    direction LR
-    ORCH["Orchestrator<br/>routes between agents,<br/>wakes the unattended ones,<br/>chain-logs every handoff"] --> AG["The agents<br/>Shopping assistant (LLM, 9 tools)<br/>Growth agent (LLM, 7 tools, hourly)<br/>Buyer agent (rules + trust, zero LLM)<br/>Outreach (signed webhooks, say-once)"]
-    AG --> GATE["The gates<br/>Mandate signer: caps, shops, expiry<br/>Cart-bound approvals: exact amount<br/>wallet.py: 5 checks,<br/>the ONLY door to money"]
-  end
-
-  subgraph T4["TIER 4 - THE SHOPS  :8001 / :8002 (never see each other)"]
-    SHOP["FreshKart API and Loomcraft API - all arithmetic happens here<br/>catalog | carts | coupon engine | demand ledger | reservations<br/>negotiation policy | ACP checkout | manifest | order sources"]
-  end
-
-  subgraph T5["TIER 5 - SETTLEMENT AND PROOF"]
-    direction LR
-    RZP["Razorpay<br/>test mode"] ~~~ CHAIN["Three SHA-256 hash chains + audit room<br/>every action of every actor, tamper-evident"]
-  end
-
-  T1 -->|"sentences, taps, decisions"| T2
-  T2 -->|"every request"| T3
-  T3 -->|"priced requests under a mandate"| T4
-  T4 -->|"money only through wallet.py"| T5
-```
+<p align="center"><img src="docs/architecture.svg" width="980" alt="VelcrowAI architecture - five tiers, one door to money"></p>
 
 Models think in tier 3, arithmetic lives in tier 4, money passes only through the wallet, and every actor's every action lands on a hash chain in tier 5.
 
 ## Agent-to-agent flow
 
-```mermaid
-sequenceDiagram
-  participant B as Buyer agent (code)
-  participant W as wallet.py (5 checks)
-  participant P as Shop sales policy (code)
-  participant C as Both hash chains
-
-  Note over B,P: Negotiation - opposed interests, no model touches a number
-  B->>P: Opening offer at 80 percent of list (ceiling stays private)
-  P-->>B: Refuse and name the floor (cost + 12 percent), or counter at target
-  B->>P: Stands its ground - the same number, twice
-  P-->>B: Deal - HMAC-signed price token (120 s, single use)
-  B->>W: Redeem token at /order - the same door as every sale
-  W->>P: Charge exactly the agreed amount or refuse
-  W->>C: Both sides record the same price, independently
-
-  Note over B,P: Restock - the shop's machines call the shopper's agent
-  P->>B: Callback - who was refused, how many, from which basket
-  B->>P: Put the refused units back into that basket (no money moved)
-  B->>B: One WhatsApp message - completed basket, exact total, Approve button
-  B->>W: The tap (Meta-signed, sender-checked) authorises that amount only
-```
+<p align="center"><img src="docs/agent_to_agent.svg" width="980" alt="Agent to agent - who talks to whom"></p>
 
 The two shops never talk to each other. Buying side and selling side meet only at published endpoints, and money only at the wallet.
 
 ## User flow
 
-```mermaid
-flowchart LR
-  A["Browse and chat<br/>with the widget"] --> B["Log in by phone<br/>OTP on WhatsApp,<br/>never a password"]
-  B --> C["Ask for 6, get 5<br/>the shortfall is recorded<br/>with your basket"]
-  C --> D["Restock arrives:<br/>basket completed,<br/>WhatsApp quotes the total"]
-  D --> E["Tap Approve:<br/>5 wallet checks,<br/>receipt in the chat"]
-  E --> F["Text the agent directly:<br/>'3 chanderi dupattas'"]
-  F --> G["State a goal:<br/>'kurti under 1500' -<br/>the cap becomes the mandate"]
-  G --> H["Orders page:<br/>every purchase names<br/>the door it came through"]
-```
+<p align="center"><img src="docs/user_flow.svg" width="980" alt="One shopper's week - the user flow"></p>
 
 The shopper never creates an account, never types a password or card number, and never has to trust anyone: every charge is an exact amount they saw and tapped, checked by code.
 
 ## Branches of the project
 
-```mermaid
-flowchart TB
-  ROOT["VelcrowAI"]
-
-  ROOT --> AG["Agents"]
-  AG --> AG1["Shopping assistant - agent/runtime.py, agent/tools.py, agent/llm.py"]
-  AG --> AG2["Growth agent - agent/merchant.py"]
-  AG --> AG3["Buyer agent - agent/buyer.py"]
-  AG --> AG4["Orchestrator - agent/orchestrator.py"]
-  AG --> AG5["WhatsApp outreach - agent/outreach.py, common/whatsapp.py"]
-
-  ROOT --> TR["Trust core"]
-  TR --> TR1["Mandates and approvals - common/mandate.py, common/approval.py"]
-  TR --> TR2["The wallet - common/wallet.py"]
-  TR --> TR3["Hash chains - common/chainlog.py"]
-  TR --> TR4["Trust scores - common/trust.py"]
-  TR --> TR5["Bandit learning - common/bandit.py"]
-
-  ROOT --> SP["Shops"]
-  SP --> SP1["Shop API - shop/app.py, shop/db.py"]
-  SP --> SP2["Coupon engine - shop/coupons.py"]
-  SP --> SP3["Negotiation policy - shop/negotiation.py"]
-  SP --> SP4["ACP checkout - shop/acp.py"]
-
-  ROOT --> UI["Surfaces"]
-  UI --> UI1["Storefronts and consoles - web-shop/"]
-  UI --> UI2["Buyer app and audit room - web-agent/"]
-  UI --> UI3["Embedded widget - agent/static/velcrow.js"]
-
-  ROOT --> PR["Proof"]
-  PR --> PR1["Determinism check - lab/determinism_check.py"]
-  PR --> PR2["Revenue Lab - lab/revenue_lab.py"]
-  PR --> PR3["Negotiation demo - lab/negotiate_demo.py"]
-  PR --> PR4["Third-party ACP buyer - lab/third_party_buyer.py"]
-  PR --> PR5["395 tests - tests/"]
-  PR --> PR6["Honest failure log - BREAKAGE.md"]
-```
+<p align="center"><img src="docs/branches.svg" width="980" alt="Branches of the project"></p>
 
 ## Run it
 

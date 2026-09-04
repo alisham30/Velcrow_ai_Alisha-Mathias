@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="836" viewBox="0 0 1180 836" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#5c6a64"/></marker></defs>
+<rect width="1180" height="836" fill="#f4f6f4" rx="6"/>
+<text x="590" y="34" font-size="19" fill="#12181c" text-anchor="middle" font-weight="700">VelcrowAI - five tiers, one door to money</text>
+<rect x="16" y="56" width="1148" height="92" rx="5" fill="none" stroke="#c9d3ce" stroke-width="1"/>
+<text x="28" y="76.0" font-size="12.5" fill="#12181c" text-anchor="start" font-weight="700">TIER 1 - PEOPLE</text>
+<text x="28" y="92" font-size="11" fill="#5c6a64" text-anchor="start">nothing below acts without one</text>
+<rect x="210" y="74" width="222" height="56" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="321.0" y="90.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">Shopper</text>
+<text x="321.0" y="106.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">widget or WhatsApp;</text>
+<text x="321.0" y="122.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">approves every payment</text>
+<rect x="444" y="74" width="222" height="56" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="555.0" y="90.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">Merchant</text>
+<text x="555.0" y="106.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">decides every</text>
+<text x="555.0" y="122.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">proposal card</text>
+<rect x="678" y="74" width="222" height="56" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="789.0" y="90.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">Buyer with a goal</text>
+<text x="789.0" y="106.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">states a budget;</text>
+<text x="789.0" y="122.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">it becomes the cap</text>
+<rect x="912" y="74" width="222" height="56" rx="4" fill="#ffffff" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="1023.0" y="90.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">A stranger&#8217;s AI</text>
+<text x="1023.0" y="106.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">reads one manifest</text>
+<text x="1023.0" y="122.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">and buys</text>
+<line x1="590" y1="148" x2="590" y2="186" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="600.0" y="161.0" font-size="11.5" fill="#5c6a64" text-anchor="start" font-style="italic">sentences, taps, decisions</text>
+<rect x="16" y="186" width="1148" height="92" rx="5" fill="none" stroke="#c9d3ce" stroke-width="1"/>
+<text x="28" y="206.0" font-size="12.5" fill="#12181c" text-anchor="start" font-weight="700">TIER 2 - SURFACES</text>
+<text x="28" y="222" font-size="11" fill="#5c6a64" text-anchor="start">React, one codebase, two brands</text>
+<rect x="210" y="204" width="222" height="56" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="321.0" y="228.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">FreshKart storefront</text>
+<text x="321.0" y="244.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">widget embedded - :5173</text>
+<rect x="444" y="204" width="222" height="56" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="555.0" y="228.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">Loomcraft storefront</text>
+<text x="555.0" y="244.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">same code, second brand - :5174</text>
+<rect x="678" y="204" width="222" height="56" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="789.0" y="228.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">Consoles / Buyer app / Audit</text>
+<text x="789.0" y="244.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">:5173-5175 /console, :5175</text>
+<rect x="912" y="204" width="222" height="56" rx="4" fill="#ffffff" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="1023.0" y="228.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">WhatsApp</text>
+<text x="1023.0" y="244.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">Meta Cloud API, test number</text>
+<line x1="590" y1="278" x2="590" y2="316" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="600.0" y="291.0" font-size="11.5" fill="#5c6a64" text-anchor="start" font-style="italic">every request</text>
+<rect x="16" y="316" width="1148" height="210" rx="5" fill="none" stroke="#c9d3ce" stroke-width="1"/>
+<text x="28" y="336.0" font-size="12.5" fill="#12181c" text-anchor="start" font-weight="700">TIER 3 - THE VELCROWAI LAYER</text>
+<text x="28" y="352" font-size="11" fill="#5c6a64" text-anchor="start">:8003 - the product being sold</text>
+<rect x="40" y="356" width="250" height="132" rx="4" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.5"/>
+<text x="165.0" y="386.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">Orchestrator</text>
+<text x="165.0" y="402.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">routes each message to the</text>
+<text x="165.0" y="418.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">right agent (model-judged,</text>
+<text x="165.0" y="434.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">code-validated), wakes the</text>
+<text x="165.0" y="450.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">unattended ones, chain-logs</text>
+<text x="165.0" y="466.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">every handoff</text>
+<rect x="340" y="356" width="380" height="132" rx="4" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.5"/>
+<text x="530.0" y="386.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">The agents</text>
+<text x="530.0" y="402.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">Shopping assistant - LLM, 9 tools</text>
+<text x="530.0" y="418.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">Growth agent - LLM, 7 tools, hourly</text>
+<text x="530.0" y="434.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">Buyer agent - rules + trust, zero LLM</text>
+<text x="530.0" y="450.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">Outreach - signed webhooks, say-once,</text>
+<text x="530.0" y="466.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">OTP login, honest outbox</text>
+<rect x="770" y="356" width="380" height="132" rx="4" fill="#f5e2dd" stroke="#a8341f" stroke-width="1.5"/>
+<text x="960.0" y="386.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">The gates</text>
+<text x="960.0" y="402.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">Session mandates - caps, shops, expiry</text>
+<text x="960.0" y="418.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">Cart-bound approvals - exact amount, 5 min</text>
+<text x="960.0" y="434.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">Signed offer tokens - 120 s, single use</text>
+<text x="960.0" y="450.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">wallet.py - 5 ordered checks,</text>
+<text x="960.0" y="466.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">the ONLY door to money</text>
+<line x1="290" y1="422" x2="340" y2="422" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<line x1="720" y1="422" x2="770" y2="422" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<line x1="590" y1="526" x2="590" y2="564" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="600.0" y="539.0" font-size="11.5" fill="#5c6a64" text-anchor="start" font-style="italic">priced requests under a mandate</text>
+<rect x="16" y="564" width="1148" height="96" rx="5" fill="none" stroke="#c9d3ce" stroke-width="1"/>
+<text x="28" y="584.0" font-size="12.5" fill="#12181c" text-anchor="start" font-weight="700">TIER 4 - THE SHOPS</text>
+<text x="28" y="600" font-size="11" fill="#5c6a64" text-anchor="start">:8001 / :8002 - never see each other</text>
+<rect x="210" y="582" width="916" height="62" rx="4" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="668.0" y="601.225" font-size="13.5" fill="#12181c" text-anchor="middle" font-weight="600">FreshKart API and Loomcraft API - all arithmetic happens here</text>
+<text x="668.0" y="617.725" font-size="12.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">catalog | carts | coupon engine | demand ledger | reservations | negotiation policy</text>
+<text x="668.0" y="634.225" font-size="12.0" fill="#5c6a64" text-anchor="middle" font-weight="normal">ACP checkout (2026-04-17) | agent manifest | order history with sources</text>
+<line x1="590" y1="660" x2="590" y2="698" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="600.0" y="673.0" font-size="11.5" fill="#5c6a64" text-anchor="start" font-style="italic">money only through wallet.py</text>
+<rect x="16" y="698" width="1148" height="92" rx="5" fill="none" stroke="#c9d3ce" stroke-width="1"/>
+<text x="28" y="718.0" font-size="12.5" fill="#12181c" text-anchor="start" font-weight="700">TIER 5 - SETTLEMENT AND PROOF</text>
+<text x="28" y="734" font-size="11" fill="#5c6a64" text-anchor="start">every action of every actor lands here</text>
+<rect x="210" y="716" width="222" height="56" rx="4" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.5"/>
+<text x="321.0" y="732.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">Razorpay</text>
+<text x="321.0" y="748.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">test mode - real API,</text>
+<text x="321.0" y="764.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">no real rupees</text>
+<rect x="456" y="716" width="670" height="56" rx="4" fill="#d9e8e1" stroke="#0f6b52" stroke-width="2.0"/>
+<text x="791.0" y="732.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="600">Three SHA-256 hash chains + the audit room</text>
+<text x="791.0" y="748.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">append-only; tamper one entry and verification goes red at that index;</text>
+<text x="791.0" y="764.55" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-weight="normal">disputes and negotiations shown from both sides</text>
+<rect x="210" y="801" width="13" height="13" rx="2" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.5"/>
+<text x="230" y="812.0" font-size="11.5" fill="#5c6a64" text-anchor="start">a model deciding</text>
+<rect x="410" y="801" width="13" height="13" rx="2" fill="#f5e2dd" stroke="#a8341f" stroke-width="1.5"/>
+<text x="430" y="812.0" font-size="11.5" fill="#5c6a64" text-anchor="start">a code gate that can refuse</text>
+<rect x="610" y="801" width="13" height="13" rx="2" fill="#d9e8e1" stroke="#0f6b52" stroke-width="1.5"/>
+<text x="630" y="812.0" font-size="11.5" fill="#5c6a64" text-anchor="start">the safe path</text>
+<rect x="810" y="801" width="13" height="13" rx="2" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="830" y="812.0" font-size="11.5" fill="#5c6a64" text-anchor="start">deterministic code</text>
+<rect x="1010" y="801" width="13" height="13" rx="2" fill="#ffffff" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="1030" y="812.0" font-size="11.5" fill="#5c6a64" text-anchor="start">someone else&#8217;s software</text>
+</svg>
