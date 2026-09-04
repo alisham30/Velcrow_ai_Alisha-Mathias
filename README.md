@@ -30,7 +30,7 @@ The proof it is an agent and not a script ships with the repo: run `lab/determin
 
 ### Honest by construction
 
-Razorpay runs in test mode and WhatsApp on Meta's test tier - real APIs, no real rupees, no strangers reachable. 404 tests pass. And every real bug we hit building this, including the ones found live by a real shopper mid-demo, is written up in `BREAKAGE.md` with the fix and a regression test - because an audit trail you can attack, and a failure log we kept, are worth more than a demo that pretends nothing ever broke.
+Razorpay runs in test mode and WhatsApp on Meta's test tier - real APIs, no real rupees, no strangers reachable. 404 tests pass. And every real bug we hit building this, including the ones found live by a real shopper mid-demo, is written up in `BREAKAGE.md` with the fix and a regression test - because an audit trail you can attack, and a failure log we kept, are worth more than a demo that pretends nothing ever broke. The ten stories worth telling are in [docs/WHAT_BROKE.md](docs/WHAT_BROKE.md); the video script is in [docs/VIDEO_SCRIPT.md](docs/VIDEO_SCRIPT.md).
 
 ## Architecture
 
