@@ -166,6 +166,68 @@ def test_first_text_binds_the_number_and_greets_once(wa):
     assert len([m for m in outreach.outbox(20) if m["kind"] == "greeting"]) == 1
 
 
+# -- the network itself --------------------------------------------------------
+# Not keyword front doors: the MODEL is given two tools (search_network,
+# switch_shop) and decides when to use them. What code guarantees is what the
+# tools return and what the surface does with the model's decision.
+
+def test_search_network_reports_every_shop_that_sells_it(wa, monkeypatch):
+    from agent import tools
+    monkeypatch.setattr(tools, "_installed", lambda: {
+        "grocery": {"shop_id": "freshkart", "name": "FreshKart", "category": "grocery",
+                    "url": "http://testshop"},
+        "grocery2": {"shop_id": "dailymandi", "name": "DailyMandi", "category": "grocery",
+                     "url": "http://testshop"}})
+    monkeypatch.setattr(tools, "_client", lambda url: Routed(wa))
+    out = tools.search_network({"shop_id": "freshkart", "surface": "whatsapp"}, query="lemons")
+    assert out["shop_count"] == 2
+    assert [s["shop"] for s in out["shops"]] == ["FreshKart", "DailyMandi"]
+    assert out["shops"][0]["here"] is True and out["shops"][1]["here"] is False
+    m = out["shops"][1]["matches"][0]
+    assert m["price_display"] and "stock" not in m and m["availability"] in ("in stock", "out of stock")
+
+
+def test_switch_shop_is_the_models_call_and_the_chat_follows(wa, inline_spawn, monkeypatch):
+    from agent import tools
+    # the tool itself: WhatsApp only, never the same shop, by key or by name
+    ctx = {"shop_id": "freshkart", "surface": "whatsapp"}
+    assert tools.switch_shop(ctx, shop="Loomcraft")["switched"] is True and ctx["switch_to"] == "apparel"
+    assert tools.switch_shop({"shop_id": "freshkart", "surface": "whatsapp"},
+                             shop="freshkart")["switched"] is False
+    with pytest.raises(tools.ToolError):
+        tools.switch_shop({"shop_id": "freshkart", "surface": "widget"}, shop="apparel")
+    # the surface acts on the model's decision: the next message lands at Loomcraft
+    monkeypatch.setattr(outreach, "_agent_turn",
+                        lambda chat, text, key: [
+                            {"kind": "switch_shop", "shop_key": "apparel", "shop": "Loomcraft"},
+                            {"kind": "message", "text": "Taking you over to Loomcraft."}])
+    raw, sig = _signed(_text_payload("the loomcraft one please", "wamid.sw1"))
+    outreach.handle_webhook(raw, sig)
+    with outreach._db() as c:
+        row = c.execute("SELECT shop_key FROM wa_chats WHERE contact_key = ?",
+                        (CONTACT_KEY,)).fetchone()
+    assert row["shop_key"] == "apparel"
+
+
+def test_a_tie_between_shops_is_told_to_the_model_not_decided_for_it(wa, inline_spawn, monkeypatch):
+    seen: dict[str, Any] = {}
+    monkeypatch.setattr(outreach, "_route_shop_candidates", lambda text, cur: ["home", "home2"])
+    monkeypatch.setattr(outreach, "_agent_turn",
+                        lambda chat, text, key: seen.update(chat) or [
+                            {"kind": "message", "text": "Both UrbanNest and MittiCraft have cushions."}])
+    raw, sig = _signed(_text_payload("any cushions?", "wamid.tie1"))
+    outreach.handle_webhook(raw, sig)
+    assert seen["shop_key"] == "home" and "MittiCraft" in seen["notes"][0]
+    assert "search_network" in seen["notes"][0]
+    assert seen["also_sold_at"] == ["MittiCraft"]
+    # and the same fact rides into the shop search result, where the model reads it
+    from agent import tools
+    monkeypatch.setattr(tools, "_client", lambda url: Routed(wa))
+    out = tools.search_catalog({"shop_url": "http://testshop", "shop_id": "freshkart",
+                                "also_sold_at": ["DailyMandi"]}, query="lemons")
+    assert out["also_sold_at"] == ["DailyMandi"] and "search_network" in out["note"]
+
+
 # -- restock offer ------------------------------------------------------------
 
 def test_restock_offer_is_composed_once_per_reservation(wa):
@@ -181,6 +243,30 @@ def test_restock_offer_is_composed_once_per_reservation(wa):
         "shop_url": "http://testshop", "held": True})
     assert out2["messaged"] is False
     assert len([m for m in outreach.outbox(10) if m["kind"] == "restock_offer"]) == 1
+
+
+def test_a_paid_restock_does_not_silence_the_next_one(wa):
+    """Found live: an APPROVED (paid) restock offer for lemons from the day
+    before still counted as 'already messaged', so every later lemon restock
+    for that shopper was skipped in silence. Finished business must not block
+    new business; only an open offer does."""
+    first = _restock_offer(wa, qty=2)
+    outreach._finish(first, "approved", txn_ref="txn_paid")
+    out = outreach.on_restock_offer({
+        "contact_key": CONTACT_KEY, "res_id": "demand_next", "item_id": "lemons-1kg",
+        "product_name": "Lemons 1kg", "variant": "", "qty": 3,
+        "unit_price_paise": 4400, "shop_id": "freshkart",
+        "shop_url": "http://testshop", "held": False, "shopper_ref": "shp_1"})
+    assert out["offer_id"] and out["offer_id"] != first
+    assert len([m for m in outreach.outbox(20) if m["kind"] == "restock_offer"]) == 2
+    # but an OPEN one still says once
+    again = outreach.on_restock_offer({
+        "contact_key": CONTACT_KEY, "res_id": "demand_next2", "item_id": "lemons-1kg",
+        "product_name": "Lemons 1kg", "variant": "", "qty": 1,
+        "unit_price_paise": 4400, "shop_id": "freshkart",
+        "shop_url": "http://testshop", "held": False, "shopper_ref": "shp_1"})
+    assert again["messaged"] is False and "already messaged" in again["why"]
+    assert len([m for m in outreach.outbox(20) if m["kind"] == "restock_offer"]) == 2
 
 
 def test_a_shopper_without_a_phone_is_not_messaged(wa):

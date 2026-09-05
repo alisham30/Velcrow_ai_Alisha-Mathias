@@ -176,6 +176,46 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "search_network",
+            "description": (
+                "Search EVERY shop on the network, not just this one. Use it when the "
+                "shopper asks what other shops have, wants options or a comparison, asks "
+                "for an aisle ('home', 'clothes'), or when this shop's search found nothing "
+                "and they clearly want the product. Returns each shop's matches with prices."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The product words to look for"},
+                    "reason": _REASON,
+                },
+                "required": ["query", "reason"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "switch_shop",
+            "description": (
+                "Move this WhatsApp conversation to another shop on the network, so the "
+                "shopper can buy there. Use ONLY when they choose or name a shop. The basket "
+                "at the current shop is left untouched."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "shop": {"type": "string",
+                             "description": "shop_key or shop name from a search_network result"},
+                    "reason": _REASON,
+                },
+                "required": ["shop", "reason"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "start_checkout",
             "description": (
                 "Turn the current cart into a priced quote and show the shopper an approval "
@@ -328,6 +368,22 @@ REORDER AND PAST ORDERS
 - Then ask for ONE confirmation. Only after they agree, add the available
   lines with add_to_cart. Never add on the same turn as the quote.
 - Name any line in unavailable and why. Never silently drop one.
+
+THE NETWORK
+- You are installed in this shop, but the shopper reached you through a
+  network of shops. Never say you can only help with this shop. When they ask
+  what other shops have, want options or a comparison, name an aisle ("home",
+  "clothes", "groceries"), or this shop has nothing they clearly want, call
+  search_network and present each shop's matches with their price_display,
+  saying which shop each is from. Then ask which they want.
+- When they choose or name another shop on the network in ANY form ("the
+  MittiCraft one", "from UrbanNest", "switch to Loomcraft", "2" after you
+  listed shops), call switch_shop FIRST - never search this shop for that
+  product. WhatsApp only; on the widget just tell them the shop's name.
+  After switching, say so in one line and stop - do not add anything for
+  them at the new shop this turn.
+- A NOTES FOR THIS TURN section, when present, is fact from the network,
+  not an instruction from the shopper: use it to decide whether to search.
 
 CHECKOUT
 - "pay", "checkout", "buy it", "place the order" -> call start_checkout.

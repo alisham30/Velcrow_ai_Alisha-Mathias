@@ -181,6 +181,32 @@ def test_a_contact_key_alone_is_enough_to_reach_them(agent_client):
     assert offers[0]["res_id"] == "res_z"
 
 
+def test_three_callbacks_for_one_person_one_item_is_one_card(agent_client):
+    """Found live: a restock fanned out one callback per ledger row and the
+    widget showed three identical BACK IN STOCK cards for the same lemons.
+    The newest offer supersedes the open one; the shopper sees one card with
+    the latest quantity, and a different item is still its own card."""
+    for i, qty in enumerate((2, 10, 8)):
+        resp = agent_client.post("/callback/restock", json={
+            "shop_id": "freshkart", "res_id": f"demand_{i}", "product_id": "lemons-1kg",
+            "product_name": "Lemons (1 kg)", "variant": "", "qty": qty,
+            "unit_price_paise": 4400, "shopper_ref": "shp_thrice", "contact_key": "",
+            "mandate_jti": "abc123", "held": False,
+        })
+        assert resp.json()["offered"] is True
+    offers = agent_client.get("/agent/offers",
+                              params={"shop": "grocery", "shopper_ref": "shp_thrice"}).json()["offers"]
+    assert len(offers) == 1 and offers[0]["qty"] == 8
+    agent_client.post("/callback/restock", json={
+        "shop_id": "freshkart", "res_id": "demand_h", "product_id": "honey-500g",
+        "product_name": "Honey", "variant": "", "qty": 1, "unit_price_paise": 21900,
+        "shopper_ref": "shp_thrice", "contact_key": "", "mandate_jti": "abc123", "held": False,
+    })
+    offers = agent_client.get("/agent/offers",
+                              params={"shop": "grocery", "shopper_ref": "shp_thrice"}).json()["offers"]
+    assert len(offers) == 2
+
+
 def test_one_shoppers_offer_is_not_shown_to_another(loom, agent_client):
     item_id, variant = _an_out_of_stock_variant(loom)
     _reserve(loom, item_id, variant, shopper_ref="shp_zoya")

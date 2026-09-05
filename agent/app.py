@@ -268,6 +268,15 @@ def create_app() -> FastAPI:
                             f"restock offer {offer['offer_id']} could not be messaged: {exc}; "
                             "the in-widget offer still stands",
                             {"offer_id": offer["offer_id"]})
+        if not messaged.get("messaged"):
+            # A silent skip is undiagnosable. The offer stands in the widget,
+            # but WHY the phone stayed quiet must be on the chain.
+            chainlog.append("buyer", "whatsapp_message_skipped",
+                            f"restock offer {offer['offer_id']} was not messaged: "
+                            f"{messaged.get('why') or messaged.get('mode') or 'unknown'}; "
+                            "the in-widget offer still stands",
+                            {"offer_id": offer["offer_id"], "why": messaged.get("why", ""),
+                             "mode": messaged.get("mode", "")})
         return {"offered": True, "offer_id": offer["offer_id"], "whatsapp": messaged}
 
     @app.get("/agent/offers")

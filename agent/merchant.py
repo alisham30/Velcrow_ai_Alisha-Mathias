@@ -234,8 +234,23 @@ def simulate_restock(ctx: dict[str, Any], item_id: str, qty: int, variant: str =
 # was in the prompt and the model wrote a restock card before testing anything,
 # then wrote a second one for the same item after being sent back. A rule that
 # guards the merchant's cash belongs in code.
-NEEDS_SIMULATION = {"restock": "simulate_restock", "campaign": "simulate_discount"}
-NEEDS_SIMULATION_KIND = {v: k for k, v in NEEDS_SIMULATION.items()}
+NEEDS_SIMULATION = {"restock": "simulate_restock", "notify": "simulate_restock",
+                    "campaign": "simulate_discount"}
+
+
+def _supports(kind: str, sim: dict[str, Any]) -> bool:
+    """Whether a simulation's numbers back THIS kind of card. One restock
+    simulation answers two different questions: is buying worth it (restock),
+    and is there refused demand already on the shelf that nobody told
+    (notify). The agent used to have no card for the second answer and reached
+    for price_alert instead (found live)."""
+    if kind == "notify":
+        return int(sim.get("recoverable_by_telling_them", 0) or 0) > 0
+    return bool(sim.get("worth_doing"))
+
+
+def _kinds_supported_by(tool: str, sim: dict[str, Any]) -> list[str]:
+    return [k for k, t in NEEDS_SIMULATION.items() if t == tool and _supports(k, sim)]
 
 
 def create_proposal(ctx: dict[str, Any], kind: str, payload: dict[str, Any],
@@ -244,6 +259,10 @@ def create_proposal(ctx: dict[str, Any], kind: str, payload: dict[str, Any],
     """Write a card for the merchant. This CHANGES NOTHING - approval does."""
     if kind not in bandit.ARMS:
         return {"error": f"kind must be one of {list(bandit.ARMS)}"}
+    if kind == "price_alert":
+        return {"error": ("price_alert is retired: it carried no number the merchant could "
+                          "check. If refused shoppers need telling that an item is on the "
+                          "shelf, that is a 'notify' card, supported by simulate_restock.")}
 
     item_id = str(payload.get("item_id") or "")
     needed = NEEDS_SIMULATION.get(kind)
@@ -253,9 +272,18 @@ def create_proposal(ctx: dict[str, Any], kind: str, payload: dict[str, Any],
             return {"error": (f"run {needed} on '{item_id}' first - a {kind} proposal has to "
                               "carry a number the merchant can check, and nothing has tested "
                               "this one")}
-        if not sim.get("worth_doing"):
-            return {"error": (f"{needed} on '{item_id}' did not support this: "
+        if not _supports(kind, sim):
+            return {"error": (f"{needed} on '{item_id}' did not support a {kind}: "
                               f"{sim.get('verdict')}. Say that instead of proposing it.")}
+        # The card carries the simulation that justified it, whether or not
+        # the model remembered to copy the figures across (it did not, found
+        # live: a correct notify card with numbers {}). Evidence is attached
+        # by code; the model only writes the rationale.
+        evidence = {k: v for k, v in sim.items()
+                    if k.endswith("_display") or k in ("verdict", "demand_refused",
+                                                       "shoppers_waiting", "already_on_shelf",
+                                                       "recoverable_units", "assumption")}
+        numbers = {**evidence, **(numbers or {})}
 
     seen = {(p["kind"], str(p.get("payload", {}).get("item_id") or ""))
             for p in ctx["proposed"]}
@@ -266,7 +294,13 @@ def create_proposal(ctx: dict[str, Any], kind: str, payload: dict[str, Any],
                       json={"kind": kind, "payload": payload, "rationale": rationale,
                             "numbers": numbers or {}})
     if resp.status_code >= 400:
-        return {"error": resp.json().get("why", "the shop refused the proposal")}
+        body = resp.json()
+        if body.get("code") == "IDEMPOTENT_REPLAY":
+            # The merchant already holds this card and has not decided it.
+            # That satisfies "a supported simulation must become a card" -
+            # the push must not nag for a second copy (found live).
+            ctx.setdefault("already_open", set()).add((kind, item_id))
+        return {"error": body.get("why", "the shop refused the proposal")}
     prop = resp.json()
     ctx.setdefault("proposed", []).append(prop)
     return {"prop_id": prop["prop_id"], "kind": kind, "status": "open",
@@ -343,11 +377,15 @@ HOW TO WORK
   *_display string in a tool result, verbatim.
 
 WHAT YOU MAY PROPOSE
-  restock       stock that is refusing demand. Support it with simulate_restock.
+  restock       stock that is refusing demand. Support it with simulate_restock:
+                it is worth doing when recoverable_units > 0.
+  notify        refused shoppers whose item is ALREADY on the shelf and who were
+                never told. Costs nothing. Support it with simulate_restock: it is
+                worth doing when recoverable_by_telling_them > 0. Payload
+                {{item_id, variant}}. Approving it sends them the offer.
   campaign      a time-boxed discount on something slow-moving with margin
                 headroom. Support it with simulate_discount.
   coupon        a minimum-cart coupon to lift basket size.
-  price_alert   a warning that a reorder item has changed price. No change.
 
 Based on what this merchant has approved before, try these in order:
 {", ".join(arm_order)}. That ordering is a prior, not an instruction - the
@@ -386,13 +424,11 @@ def _unsimulated_outstanding(ctx: dict[str, Any], run: dict[str, Any]) -> dict[s
 def _supported_unproposed(ctx: dict[str, Any]) -> tuple[str, str] | None:
     """The first simulation that said 'worth doing' and produced no card."""
     proposed = {(p["kind"], str(p.get("payload", {}).get("item_id") or ""))
-                for p in ctx.get("proposed", [])}
+                for p in ctx.get("proposed", [])} | set(ctx.get("already_open", set()))
     for (tool, item), sim in ctx.get("simulated", {}).items():
-        kind = NEEDS_SIMULATION_KIND.get(tool)
-        if not kind or not sim.get("worth_doing"):
-            continue
-        if (kind, item) not in proposed:
-            return item, str(sim.get("verdict", ""))[:160]
+        for kind in _kinds_supported_by(tool, sim):
+            if (kind, item) not in proposed:
+                return item, str(sim.get("verdict", ""))[:160]
     return None
 
 
@@ -590,12 +626,12 @@ MERCHANT_TOOLS: list[dict[str, Any]] = [
         "description": ("Write a proposal card for the merchant. Changes nothing by itself. "
                         "Only for ideas a simulation supported."),
         "parameters": {"type": "object", "properties": {
-            "kind": {"type": "string", "enum": list(bandit.ARMS)},
+            "kind": {"type": "string",
+                     "enum": [a for a in bandit.ARMS if a != "price_alert"]},
             "payload": {"type": "object",
-                        "description": ("restock: {item_id, variant, qty}. campaign/coupon: "
+                        "description": ("restock: {item_id, variant, qty}. notify: {item_id, variant}. campaign/coupon: "
                                         "{coupon: {code, kind, value_paise|value_pct, "
-                                        "min_cart_paise, stackable, description}, days}. "
-                                        "price_alert: {item_id, note}")},
+                                        "min_cart_paise, stackable, description}, days}.")},
             "rationale": {"type": "string", "description": "Two sentences for a busy shopkeeper"},
             "numbers": {"type": "object", "description": "The simulation output that justifies it"},
             "reason": llm._REASON},

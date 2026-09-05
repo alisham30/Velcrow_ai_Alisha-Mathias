@@ -189,9 +189,14 @@ def on_restock_offer(offer: dict[str, Any]) -> dict[str, Any]:
         # A restock fans out one callback per ledger row, and one shopper can
         # own several rows (refused three times for the same lemons). Four
         # pings about one restock is nagging, not service.
-        dup = c.execute("SELECT offer_id FROM wa_offers WHERE kind = 'restock' "
-                        "AND status IN ('pending', 'approved') AND (res_id = ? "
-                        "OR (contact_key = ? AND json_extract(items, '$[0].item_id') = ?))",
+        # Only an OPEN offer blocks the person-per-item rule. An approved one
+        # is finished business: they were told, they paid, the ledger row is
+        # converted. Counting it forever meant one paid lemon rescue silenced
+        # every lemon restock for that shopper for life (found live).
+        dup = c.execute("SELECT offer_id FROM wa_offers WHERE kind = 'restock' AND ("
+                        "(status IN ('pending', 'approved') AND res_id = ?) "
+                        "OR (status = 'pending' AND contact_key = ? "
+                        "AND json_extract(items, '$[0].item_id') = ?))",
                         (str(offer.get("res_id") or ""), contact_key,
                          str(offer.get("item_id") or ""))).fetchone()
     if dup:
@@ -249,8 +254,10 @@ def _complete_basket(offer: dict[str, Any]) -> dict[str, Any] | None:
     cart_id = str(offer["cart_id"])
     qty = int(offer.get("qty", 1) or 1)
     with _db() as c:   # a second restock must not stuff the basket again
+        # Pending only: an approved basket offer was paid and the cart emptied,
+        # so a later refusal on the same cart id is a new basket, not a repeat.
         dup = c.execute("SELECT offer_id FROM wa_offers WHERE kind = 'cart' AND cart_id = ? "
-                        "AND status IN ('pending', 'approved')", (cart_id,)).fetchone()
+                        "AND status = 'pending'", (cart_id,)).fetchone()
     if dup:
         return {"messaged": False, "why": f"basket already offered as {dup['offer_id']}"}
     try:
@@ -537,7 +544,7 @@ def active_cart(contact_key: str, shop_id: str) -> str:
     return act["cart_id"] if act else ""
 
 
-_MENU_CACHE: dict[str, Any] = {"ts": 0.0, "menu": {}, "hay": {}}
+_MENU_CACHE: dict[str, Any] = {"ts": 0.0, "menu": {}, "hay": {}, "products": {}}
 _MENU_TTL = 600
 
 
@@ -549,12 +556,17 @@ def _refresh_catalog_cache() -> None:
         return
     menu: dict[str, str] = {}
     hay: dict[str, str] = {}
+    products: dict[str, list[dict[str, Any]]] = {}
     for key, ins in _shops().items():
         words: list[str] = []
-        pieces: list[str] = []
+        # A shop's own name is part of its vocabulary, so "UrbanNest" as a
+        # reply to "which one?" routes there.
+        pieces: list[str] = [ins["name"], ins["shop_id"]]
+        products[key] = []
         try:
             with httpx.Client(base_url=ins["url"], timeout=8) as http:
                 for p in http.get("/catalog").json():
+                    products[key].append(p)
                     pieces.append(f"{p.get('name', '')} {p.get('category', '')} "
                                   f"{' '.join(p.get('tags', []))}")
                     for w in [p.get("category", "")] + list(p.get("tags", [])):
@@ -565,7 +577,7 @@ def _refresh_catalog_cache() -> None:
         vocab = ", ".join(words[:14])
         menu[key] = f"{ins['name']} ({ins['category']}" + (f": sells {vocab}" if vocab else "") + ")"
         hay[key] = " ".join(pieces).lower()
-    _MENU_CACHE.update(menu=menu, hay=hay)
+    _MENU_CACHE.update(menu=menu, hay=hay, products=products)
     if any(hay.values()):
         _MENU_CACHE["ts"] = time.time()
 
@@ -598,19 +610,32 @@ def _route_shop(text: str, current_key: str | None) -> str:
     grocer when a model did this, because matching words to catalogs is
     lexical work, not judgment. A shop that names the goods wins; ties keep
     the current shop; a message naming no goods stays where it is."""
+    return _route_shop_candidates(text, current_key)[0]
+
+
+def _query_words(text: str) -> set[str]:
     raw_words = {w for w in "".join(ch if ch.isalnum() else " " for ch in text.lower()).split()
                  if len(w) >= 3}
-    words = raw_words | {w[:-1] for w in raw_words if w.endswith("s") and len(w) > 3}
+    return raw_words | {w[:-1] for w in raw_words if w.endswith("s") and len(w) > 3}
+
+
+def _route_shop_candidates(text: str, current_key: str | None) -> list[str]:
+    """Every shop that names the goods equally well. One entry when the
+    message stays put or the current shop is among the winners; several when
+    the shopper is jumping and more than one shop sells it - then the honest
+    answer is to show them all, not to pick the first (found live: "cushions"
+    from the grocer silently went to UrbanNest while MittiCraft sold them too)."""
+    words = _query_words(text)
     scores: dict[str, int] = {}
     for key, hay in _catalog_hay().items():
         scores[key] = sum(1 for w in words if w in hay)
     best = max(scores.values() or [0])
     if best <= 0:
-        return current_key or "grocery"
+        return [current_key or "grocery"]
     winners = [k for k, v in scores.items() if v == best]
     if current_key in winners:
-        return current_key
-    return winners[0]
+        return [current_key]
+    return winners
 
 
 def _chat_state(contact_key: str, shop_key: str) -> dict[str, Any]:
@@ -673,7 +698,8 @@ def _agent_turn(chat: dict[str, Any], text: str, contact_key: str) -> list[dict[
     asyncio.run(runtime.run_turn(run, installed, chat["cart_id"], text,
                                  chat["history"], claims, mandate_token=token,
                                  shopper_ref="", contact_key=contact_key,
-                                 surface="whatsapp"))
+                                 surface="whatsapp", notes=chat.get("notes"),
+                                 also_sold_at=chat.get("also_sold_at")))
     return run.events
 
 
@@ -703,9 +729,13 @@ def run_wa_turn(wa_id: str, text: str) -> dict[str, Any]:
                              f"routed {text[:60]!r} as a cross-shop goal")
         return _goal_start(wa_id, key, text)
 
+    # Facts for the model, never a decision made for it: when the goods the
+    # shopper named are sold by more than one shop, the assistant is told so
+    # and can search the network and offer every option in its own words.
+    candidates = _route_shop_candidates(text, row["shop_key"] if row else None)
     orchestrator.handoff("whatsapp", "shopping-assistant",
                          f"routed {text[:60]!r} to {decide['shop']}",
-                         shop_key=decide["shop"])
+                         shop_key=decide["shop"], also_sold_at=candidates[1:])
     try:
         chat = _chat_state(key, decide["shop"])
         if not chat["cart_id"]:
@@ -714,7 +744,20 @@ def run_wa_turn(wa_id: str, text: str) -> dict[str, Any]:
                        "Try again in a minute.")
             return {"kind": "chat", "why": "shop unreachable"}
         record_cart_activity(chat["shop_id"], chat["shop_url"], chat["cart_id"], key, "")
+        if len(candidates) > 1:
+            others = [_shops()[k]["name"] for k in candidates if k != decide["shop"]]
+            chat["also_sold_at"] = others
+            chat["notes"] = [f"What the shopper just asked for is ALSO sold by {', '.join(others)}. "
+                             "Call search_network INSTEAD of search_catalog so they can see every "
+                             "shop's options and prices, then let them choose."]
         events = _agent_turn(chat, text, key)
+        # The model may have decided to move the conversation to another shop.
+        moved = next((e for e in events if e.get("kind") == "switch_shop"), None)
+        if moved and moved.get("shop_key") in _shops():
+            _chat_state(key, moved["shop_key"])
+            orchestrator.handoff("whatsapp", "shopping-assistant",
+                                 f"the assistant moved the chat to {moved['shop_key']}",
+                                 shop_key=moved["shop_key"])
     except Exception as exc:
         chainlog.append("buyer", "whatsapp_turn_failed",
                         f"WhatsApp turn for {_mask(wa_id)} failed before any reply: {exc}",
@@ -728,6 +771,9 @@ def run_wa_turn(wa_id: str, text: str) -> dict[str, Any]:
                   if e.get("kind") == "message" and e.get("text")), "")
     quote = next((e for e in events if e.get("kind") == "approval_required"), None)
 
+    # Formatting is code work: markdown bold is "**x**", WhatsApp bold is
+    # "*x*", and a model told "no asterisks" still slips some in.
+    reply = reply.replace("**", "*")
     if quote is None:
         _send_text(wa_id, "chat_reply", reply or "Done. Anything else?")
         _remember_turn(key, text, reply)

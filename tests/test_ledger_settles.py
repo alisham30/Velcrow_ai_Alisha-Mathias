@@ -305,3 +305,34 @@ def test_a_basket_cannot_settle_its_own_shortfall(freshkart):
     lost = freshkart.get("/merchant/demand-ledger").json()
     row = next((r for r in lost["rows"] if r["item_id"] == "honey-500g"), None)
     assert row is None or row["outstanding_units"] == 0, row
+
+
+def test_one_basket_refused_three_times_is_one_open_row(freshkart):
+    """Found live: three refusals of the same lemons from the same cart wrote
+    three ledger rows, and the restock fanned out three BACK IN STOCK cards.
+    One open row per basket per item: "add" refusals grow it, a "target"
+    refusal replaces it, and a different basket is still its own row."""
+    import os
+    import sqlite3
+    item = _out_of_stock_flat(freshkart)
+    cart = freshkart.post("/cart").json()["cart_id"]
+    for qty in (2, 10, 8):
+        r = freshkart.post(f"/cart/{cart}/fulfil", headers=_auth("freshkart"),
+                           json={"item_id": item, "variant": "", "qty": qty, "mode": "add",
+                                 "shopper_ref": "shp_thrice", "contact_ref": "+919000000001"})
+        assert r.json()["shortfall"] == qty
+
+    def rows():
+        c = sqlite3.connect(os.path.join(os.environ["VELCROW_DATA_DIR"], "shop_freshkart.sqlite"))
+        return c.execute("SELECT cart_id, qty FROM demand_ledger WHERE item_id = ?"
+                         " AND shopper_ref = 'shp_thrice' ORDER BY id", (item,)).fetchall()
+    assert rows() == [(cart, 20)]
+    freshkart.post(f"/cart/{cart}/fulfil", headers=_auth("freshkart"),
+                   json={"item_id": item, "variant": "", "qty": 5, "mode": "target",
+                         "shopper_ref": "shp_thrice", "contact_ref": "+919000000001"})
+    assert rows() == [(cart, 5)]
+    other = freshkart.post("/cart").json()["cart_id"]
+    freshkart.post(f"/cart/{other}/fulfil", headers=_auth("freshkart"),
+                   json={"item_id": item, "variant": "", "qty": 1, "mode": "add",
+                         "shopper_ref": "shp_thrice", "contact_ref": "+919000000001"})
+    assert rows() == [(cart, 5), (other, 1)]

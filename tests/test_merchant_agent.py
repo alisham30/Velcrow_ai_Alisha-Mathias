@@ -187,15 +187,16 @@ def test_a_discount_simulation_states_its_assumption(loom):
 
 
 def test_at_most_three_proposals_come_out_of_one_run(loom, monkeypatch):
-    # price_alert changes no money, so it needs no simulation - which keeps this
-    # test about the cap rather than about the simulation gate. Five different
-    # items, because proposing the same one twice is refused separately.
+    # The simulation gate is switched off here so this test is about the cap,
+    # not the gate. Five different items, because proposing the same one twice
+    # is refused separately.
+    monkeypatch.setattr(merchant, "NEEDS_SIMULATION", {})
     items = ["kurti-indigo-cotton", "shirt-oxford-white", "tshirt-graphic-black",
              "hoodie-fleece-grey", "jeans-slim-indigo"]
     monkeypatch.setattr(llm, "plan", _scripted(
         {"content": "", "tool_calls": [
             {"id": f"c{i}", "name": "create_proposal",
-             "args": {"kind": "price_alert", "payload": {"item_id": item, "note": "up"},
+             "args": {"kind": "notify", "payload": {"item_id": item, "variant": ""},
                       "rationale": "r", "reason": "why"}}
             for i, item in enumerate(items)]},
         {"content": "Done.", "tool_calls": []},
@@ -385,15 +386,16 @@ def test_a_simulation_that_says_no_cannot_be_proposed_anyway(loom, monkeypatch):
     run = merchant.run_once(loom)
     assert not run["proposals"]
     refused = [e for e in run["events"] if e["kind"] == "tool" and not e["ok"]]
-    assert refused and "did not support this" in refused[0]["result_display"]
+    assert refused and "did not support a restock" in refused[0]["result_display"]
 
 
 def test_the_same_proposal_cannot_be_written_twice_in_one_run(loom, monkeypatch):
+    monkeypatch.setattr(merchant, "NEEDS_SIMULATION", {})
     monkeypatch.setattr(llm, "plan", _scripted(
         {"content": "", "tool_calls": [
             {"id": f"c{i}", "name": "create_proposal",
-             "args": {"kind": "price_alert", "payload": {"item_id": "socks-crew-3pack",
-                                                         "note": "up"},
+             "args": {"kind": "notify", "payload": {"item_id": "socks-crew-3pack",
+                                                    "variant": ""},
                       "rationale": "r", "reason": "why"}} for i in range(2)]},
         {"content": "Done.", "tool_calls": []},
     ))
@@ -502,3 +504,91 @@ def test_an_explicit_discard_after_the_push_stands(loom, monkeypatch):
     assert run["outcome"] == "no_action"
     assert "Discarding" in run["summary"]
     assert len([e for e in run["events"] if e["kind"] == "sent_back"]) == 1
+
+
+# -- the notify card (found live) ---------------------------------------------
+
+def test_price_alert_is_retired_and_points_at_notify(loom):
+    out = merchant.create_proposal({"shop_url": "http://testshop", "shop_id": "loomcraft",
+                                    "proposed": [], "simulated": {}},
+                                   kind="price_alert", payload={"item_id": "x", "note": "n"},
+                                   rationale="r")
+    assert "retired" in out["error"] and "notify" in out["error"]
+
+
+def test_a_notify_card_needs_shelf_stock_that_nobody_was_told_about(loom):
+    """The simulation that says "buy nothing, they are on the shelf, tell them"
+    now has a card it supports. The same simulation does NOT support a
+    restock, and approving a notify changes no stock."""
+    ctx = {"shop_url": "http://testshop", "shop_id": "loomcraft", "proposed": [],
+           "simulated": {}}
+    client = loom["client"]
+    item, variant = "kurti-indigo-cotton", "S"        # S is out of stock in the fixture
+    _refuse_demand(client, item, variant, 2)
+    # the shelf is refilled, but the agent is a dead port in tests, so nobody
+    # is reached: exactly the refused-restocked-never-told state found live
+    client.post("/admin/restock", json={"item_id": item, "variant": variant, "qty": 5})
+
+    sim = merchant.simulate_restock(ctx, item_id=item, qty=5, variant=variant)
+    ctx["simulated"][("simulate_restock", item)] = sim
+    assert sim["recoverable_by_telling_them"] == 2 and sim["worth_doing"] is False
+    refused = merchant.create_proposal(ctx, kind="restock",
+                                       payload={"item_id": item, "variant": variant, "qty": 5},
+                                       rationale="r")
+    assert "did not support a restock" in refused["error"]
+    card = merchant.create_proposal(ctx, kind="notify",
+                                    payload={"item_id": item, "variant": variant},
+                                    rationale="They are on the shelf; tell them.",
+                                    numbers={"recoverable": sim["recoverable_by_telling_them_display"]})
+    assert card["kind"] == "notify" and card["prop_id"]
+    # the card carries its evidence even when the model passes nothing
+    bare = merchant.create_proposal(ctx, kind="notify", payload={"item_id": item, "variant": "M"},
+                                    rationale="r")
+    stored = next(p for p in loom["client"].get("/merchant/proposals").json()["proposals"]
+                  if p["prop_id"] == card["prop_id"])
+    assert stored["numbers"]["recoverable_by_telling_them_display"] == sim["recoverable_by_telling_them_display"]
+    assert "verdict" in stored["numbers"]
+
+    before = client.get(f"/product/{item}").json()
+    decided = client.post(f"/merchant/proposals/{card['prop_id']}/decide",
+                          json={"decision": "approve"}).json()
+    assert "notified" in decided["applied"]
+    assert client.get(f"/product/{item}").json() == before
+
+
+def test_an_approved_restock_tells_the_people_it_was_bought_for(loom):
+    """Found live: approving a restock card refilled the shelf in silence, so
+    the demand it answered stayed 'refused, never told' in the ledger."""
+    client = loom["client"]
+    item, variant = "kurti-indigo-cotton", "S"
+    _refuse_demand(client, item, variant, 1)
+    prop = client.post("/merchant/proposals", json={
+        "kind": "restock", "payload": {"item_id": item, "variant": variant, "qty": 3},
+        "rationale": "r", "numbers": {}}).json()
+    decided = client.post(f"/merchant/proposals/{prop['prop_id']}/decide",
+                          json={"decision": "approve"}).json()
+    assert decided["applied"]["restocked"] == 3
+    assert "notified" in decided["applied"]     # the callback path ran (dead port here)
+
+
+def test_a_card_the_merchant_already_holds_satisfies_the_push(loom):
+    """Found live: the second hourly run simulated, was refused a duplicate of
+    an OPEN card, and was then sent back for 'a supported simulation with no
+    proposal'. An undecided card on the console is a proposal."""
+    ctx = {"shop_url": "http://testshop", "shop_id": "loomcraft", "proposed": [],
+           "simulated": {}}
+    item, variant = "kurti-indigo-cotton", "S"
+    _refuse_demand(loom["client"], item, variant, 2)
+    loom["client"].post("/admin/restock", json={"item_id": item, "variant": variant, "qty": 5})
+    sim = merchant.simulate_restock(ctx, item_id=item, qty=5, variant=variant)
+    ctx["simulated"][("simulate_restock", item)] = sim
+    first = merchant.create_proposal(ctx, kind="notify", payload={"item_id": item, "variant": variant},
+                                     rationale="tell them")
+    assert first["prop_id"]
+    fresh = {"shop_url": "http://testshop", "shop_id": "loomcraft", "proposed": [],
+             "simulated": {("simulate_restock", item): sim}}
+    assert merchant._supported_unproposed(fresh) is not None      # nothing filed in THIS run yet
+    again = merchant.create_proposal(fresh, kind="notify", payload={"item_id": item, "variant": variant},
+                                     rationale="tell them")
+    assert "already exists" in again["error"]
+    assert merchant._supported_unproposed(fresh) is None          # the open card counts

@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="700" viewBox="0 0 1180 700" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#5c6a64"/></marker></defs>
+<rect width="1180" height="700" fill="#f4f6f4" rx="6"/>
+<text x="590.0" y="34" font-size="17" fill="#12181c" text-anchor="middle" font-weight="700">In a real shop, someone helps you at every step. Online, nobody does - and revenue leaks at every empty step.</text>
+<rect x="20" y="58" width="1140" height="232" rx="5" fill="#eef4f0" stroke="#b9cdc3" stroke-width="1"/>
+<text x="40" y="82" font-size="12.5" fill="#0f6b52" text-anchor="start" font-weight="700">IN THE STORE - a helper at every step</text>
+<rect x="40" y="96" width="176" height="176" rx="5" fill="#ffffff" stroke="#b9cdc3" stroke-width="1.2"/>
+<text x="128.0" y="120" font-size="13.5" fill="#12181c" text-anchor="middle" font-weight="700">Walk in</text>
+<circle cx="128.0" cy="148" r="7" fill="#0f6b52"/>
+<path d="M 115.0 170 a 13 13 0 0 1 26 0 z" fill="#0f6b52"/>
+<text x="128.0" y="200" font-size="11" fill="#5c6a64" text-anchor="middle" font-style="italic">&#8220;What are you looking for?&#8221;</text>
+<text x="128.0" y="218" font-size="10.5" fill="#0f6b52" text-anchor="middle">someone is there</text>
+<line x1="216" y1="184" x2="224" y2="184" stroke="#5c6a64" stroke-width="1.4" marker-end="url(#arr)"/>
+<rect x="224" y="96" width="176" height="176" rx="5" fill="#ffffff" stroke="#b9cdc3" stroke-width="1.2"/>
+<text x="312.0" y="120" font-size="13.5" fill="#12181c" text-anchor="middle" font-weight="700">Find it</text>
+<circle cx="312.0" cy="148" r="7" fill="#0f6b52"/>
+<path d="M 299.0 170 a 13 13 0 0 1 26 0 z" fill="#0f6b52"/>
+<text x="312.0" y="200" font-size="11" fill="#5c6a64" text-anchor="middle" font-style="italic">&#8220;Aisle 3 - and these go with it&#8221;</text>
+<text x="312.0" y="218" font-size="10.5" fill="#0f6b52" text-anchor="middle">someone is there</text>
+<line x1="400" y1="184" x2="408" y2="184" stroke="#5c6a64" stroke-width="1.4" marker-end="url(#arr)"/>
+<rect x="408" y="96" width="176" height="176" rx="5" fill="#ffffff" stroke="#b9cdc3" stroke-width="1.2"/>
+<text x="496.0" y="120" font-size="13.5" fill="#12181c" text-anchor="middle" font-weight="700">It&#8217;s sold out</text>
+<circle cx="496.0" cy="148" r="7" fill="#0f6b52"/>
+<path d="M 483.0 170 a 13 13 0 0 1 26 0 z" fill="#0f6b52"/>
+<text x="496.0" y="200" font-size="11" fill="#5c6a64" text-anchor="middle" font-style="italic">&#8220;I&#8217;ll hold one - back Thursday&#8221;</text>
+<text x="496.0" y="218" font-size="10.5" fill="#0f6b52" text-anchor="middle">someone is there</text>
+<line x1="584" y1="184" x2="592" y2="184" stroke="#5c6a64" stroke-width="1.4" marker-end="url(#arr)"/>
+<rect x="592" y="96" width="176" height="176" rx="5" fill="#ffffff" stroke="#b9cdc3" stroke-width="1.2"/>
+<text x="680.0" y="120" font-size="13.5" fill="#12181c" text-anchor="middle" font-weight="700">Decide</text>
+<circle cx="680.0" cy="148" r="7" fill="#0f6b52"/>
+<path d="M 667.0 170 a 13 13 0 0 1 26 0 z" fill="#0f6b52"/>
+<text x="680.0" y="200" font-size="11" fill="#5c6a64" text-anchor="middle" font-style="italic">&#8220;This fits; that one&#8217;s cheaper&#8221;</text>
+<text x="680.0" y="218" font-size="10.5" fill="#0f6b52" text-anchor="middle">someone is there</text>
+<line x1="768" y1="184" x2="776" y2="184" stroke="#5c6a64" stroke-width="1.4" marker-end="url(#arr)"/>
+<rect x="776" y="96" width="176" height="176" rx="5" fill="#ffffff" stroke="#b9cdc3" stroke-width="1.2"/>
+<text x="864.0" y="120" font-size="13.5" fill="#12181c" text-anchor="middle" font-weight="700">Pay</text>
+<circle cx="864.0" cy="148" r="7" fill="#0f6b52"/>
+<path d="M 851.0 170 a 13 13 0 0 1 26 0 z" fill="#0f6b52"/>
+<text x="864.0" y="200" font-size="11" fill="#5c6a64" text-anchor="middle" font-style="italic">&#8220;Exactly &#8377;899 - here&#8217;s your receipt&#8221;</text>
+<text x="864.0" y="218" font-size="10.5" fill="#0f6b52" text-anchor="middle">someone is there</text>
+<line x1="952" y1="184" x2="960" y2="184" stroke="#5c6a64" stroke-width="1.4" marker-end="url(#arr)"/>
+<rect x="960" y="96" width="176" height="176" rx="5" fill="#ffffff" stroke="#b9cdc3" stroke-width="1.2"/>
+<text x="1048.0" y="120" font-size="13.5" fill="#12181c" text-anchor="middle" font-weight="700">Come back</text>
+<circle cx="1048.0" cy="148" r="7" fill="#0f6b52"/>
+<path d="M 1035.0 170 a 13 13 0 0 1 26 0 z" fill="#0f6b52"/>
+<text x="1048.0" y="200" font-size="11" fill="#5c6a64" text-anchor="middle" font-style="italic">&#8220;Your usual? It&#8217;s back in stock&#8221;</text>
+<text x="1048.0" y="218" font-size="10.5" fill="#0f6b52" text-anchor="middle">someone is there</text>
+<rect x="20" y="304" width="1140" height="232" rx="5" fill="#f7ecea" stroke="#dfb8b0" stroke-width="1"/>
+<text x="40" y="328" font-size="12.5" fill="#a8341f" text-anchor="start" font-weight="700">ONLINE TODAY - the same six steps, nobody home</text>
+<rect x="40" y="342" width="176" height="176" rx="5" fill="#ffffff" stroke="#dfb8b0" stroke-width="1.2" stroke-dasharray="5,4"/>
+<text x="128.0" y="366" font-size="13.5" fill="#12181c" text-anchor="middle" font-weight="700">Walk in</text>
+<circle cx="128.0" cy="394" r="7" fill="none" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="3,2"/>
+<path d="M 115.0 416 a 13 13 0 0 1 26 0 z" fill="none" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="3,2"/>
+<line x1="122.0" y1="388" x2="134.0" y2="400" stroke="#a8341f" stroke-width="2"/>
+<line x1="134.0" y1="388" x2="122.0" y2="400" stroke="#a8341f" stroke-width="2"/>
+<text x="128.0" y="446" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">a search box, no guidance</text>
+<text x="128.0" y="464" font-size="10.5" fill="#a8341f" text-anchor="middle">revenue leaks here</text>
+<line x1="216" y1="430" x2="224" y2="430" stroke="#5c6a64" stroke-width="1.4" marker-end="url(#arr)"/>
+<rect x="224" y="342" width="176" height="176" rx="5" fill="#ffffff" stroke="#dfb8b0" stroke-width="1.2" stroke-dasharray="5,4"/>
+<text x="312.0" y="366" font-size="13.5" fill="#12181c" text-anchor="middle" font-weight="700">Find it</text>
+<circle cx="312.0" cy="394" r="7" fill="none" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="3,2"/>
+<path d="M 299.0 416 a 13 13 0 0 1 26 0 z" fill="none" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="3,2"/>
+<line x1="306.0" y1="388" x2="318.0" y2="400" stroke="#a8341f" stroke-width="2"/>
+<line x1="318.0" y1="388" x2="306.0" y2="400" stroke="#a8341f" stroke-width="2"/>
+<text x="312.0" y="446" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">no one suggests, no one knows you</text>
+<text x="312.0" y="464" font-size="10.5" fill="#a8341f" text-anchor="middle">revenue leaks here</text>
+<line x1="400" y1="430" x2="408" y2="430" stroke="#5c6a64" stroke-width="1.4" marker-end="url(#arr)"/>
+<rect x="408" y="342" width="176" height="176" rx="5" fill="#ffffff" stroke="#dfb8b0" stroke-width="1.2" stroke-dasharray="5,4"/>
+<text x="496.0" y="366" font-size="13.5" fill="#12181c" text-anchor="middle" font-weight="700">It&#8217;s sold out</text>
+<circle cx="496.0" cy="394" r="7" fill="none" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="3,2"/>
+<path d="M 483.0 416 a 13 13 0 0 1 26 0 z" fill="none" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="3,2"/>
+<line x1="490.0" y1="388" x2="502.0" y2="400" stroke="#a8341f" stroke-width="2"/>
+<line x1="502.0" y1="388" x2="490.0" y2="400" stroke="#a8341f" stroke-width="2"/>
+<text x="496.0" y="446" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">dead end; the sale silently dies</text>
+<text x="496.0" y="464" font-size="10.5" fill="#a8341f" text-anchor="middle">revenue leaks here</text>
+<line x1="584" y1="430" x2="592" y2="430" stroke="#5c6a64" stroke-width="1.4" marker-end="url(#arr)"/>
+<rect x="592" y="342" width="176" height="176" rx="5" fill="#ffffff" stroke="#dfb8b0" stroke-width="1.2" stroke-dasharray="5,4"/>
+<text x="680.0" y="366" font-size="13.5" fill="#12181c" text-anchor="middle" font-weight="700">Decide</text>
+<circle cx="680.0" cy="394" r="7" fill="none" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="3,2"/>
+<path d="M 667.0 416 a 13 13 0 0 1 26 0 z" fill="none" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="3,2"/>
+<line x1="674.0" y1="388" x2="686.0" y2="400" stroke="#a8341f" stroke-width="2"/>
+<line x1="686.0" y1="388" x2="674.0" y2="400" stroke="#a8341f" stroke-width="2"/>
+<text x="680.0" y="446" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">no comparison, no honest steer</text>
+<text x="680.0" y="464" font-size="10.5" fill="#a8341f" text-anchor="middle">revenue leaks here</text>
+<line x1="768" y1="430" x2="776" y2="430" stroke="#5c6a64" stroke-width="1.4" marker-end="url(#arr)"/>
+<rect x="776" y="342" width="176" height="176" rx="5" fill="#ffffff" stroke="#dfb8b0" stroke-width="1.2" stroke-dasharray="5,4"/>
+<text x="864.0" y="366" font-size="13.5" fill="#12181c" text-anchor="middle" font-weight="700">Pay</text>
+<circle cx="864.0" cy="394" r="7" fill="none" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="3,2"/>
+<path d="M 851.0 416 a 13 13 0 0 1 26 0 z" fill="none" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="3,2"/>
+<line x1="858.0" y1="388" x2="870.0" y2="400" stroke="#a8341f" stroke-width="2"/>
+<line x1="870.0" y1="388" x2="858.0" y2="400" stroke="#a8341f" stroke-width="2"/>
+<text x="864.0" y="446" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">will it charge what I saw? who checks?</text>
+<text x="864.0" y="464" font-size="10.5" fill="#a8341f" text-anchor="middle">revenue leaks here</text>
+<line x1="952" y1="430" x2="960" y2="430" stroke="#5c6a64" stroke-width="1.4" marker-end="url(#arr)"/>
+<rect x="960" y="342" width="176" height="176" rx="5" fill="#ffffff" stroke="#dfb8b0" stroke-width="1.2" stroke-dasharray="5,4"/>
+<text x="1048.0" y="366" font-size="13.5" fill="#12181c" text-anchor="middle" font-weight="700">Come back</text>
+<circle cx="1048.0" cy="394" r="7" fill="none" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="3,2"/>
+<path d="M 1035.0 416 a 13 13 0 0 1 26 0 z" fill="none" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="3,2"/>
+<line x1="1042.0" y1="388" x2="1054.0" y2="400" stroke="#a8341f" stroke-width="2"/>
+<line x1="1054.0" y1="388" x2="1042.0" y2="400" stroke="#a8341f" stroke-width="2"/>
+<text x="1048.0" y="446" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">no memory, no message, no return</text>
+<text x="1048.0" y="464" font-size="10.5" fill="#a8341f" text-anchor="middle">revenue leaks here</text>
+<rect x="20" y="552" width="1140" height="56" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="590.0" y="575" font-size="14" fill="#12181c" text-anchor="middle" font-weight="700">THE GAP: many channels, many pain points - and no single force reaching all of them.</text>
+<text x="590.0" y="596" font-size="12" fill="#5c6a64" text-anchor="middle">Fix one step and the sale still dies at the next. Growth needs one presence at EVERY step - for human buyers using AI, and for AI buyers.</text>
+<rect x="20" y="622" width="1140" height="52" rx="5" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.8"/>
+<text x="590.0" y="645" font-size="14.5" fill="#12181c" text-anchor="middle" font-weight="700">SO: what if an AI could be that helper - at every step, on every channel, for everyone who shops?</text>
+<text x="590.0" y="664" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-style="italic">one agent brain, every door, one escrow behind them  &#8594;  next slide</text>
+</svg>

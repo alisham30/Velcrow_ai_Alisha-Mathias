@@ -79,6 +79,18 @@ MAX_OFFERS_KEPT = 200
 
 
 def hold_offer(shopper_ref: str, offer: dict[str, Any]) -> dict[str, Any]:
+    """Hold a one-tap offer for a shopper. One open card per person per item:
+    a restock fans out one callback per ledger row, and the same person can
+    own several rows for the same lemons. Three identical "back in stock"
+    cards in one widget is nagging (found live) - the newest supersedes."""
+    contact_key = str(offer.get("contact_key") or "")
+    for old in OFFERS.values():
+        if (old["status"] == "pending" and old.get("shop_id") == offer.get("shop_id")
+                and old.get("item_id") == offer.get("item_id")
+                and str(old.get("variant") or "") == str(offer.get("variant") or "")
+                and ((shopper_ref and old.get("shopper_ref") == shopper_ref)
+                     or (contact_key and old.get("contact_key") == contact_key))):
+            old["status"] = "superseded"
     held = {**offer, "offer_id": "off_" + uuid.uuid4().hex[:12],
             "shopper_ref": shopper_ref, "created_ts": time.time(), "status": "pending"}
     OFFERS[held["offer_id"]] = held
@@ -144,15 +156,22 @@ def gather_context(shop: dict[str, Any], cart_id: str, mandate_claims: dict[str,
 async def run_turn(run: Run, shop: dict[str, Any], cart_id: str, user_text: str,
                    history: list[dict[str, str]], mandate_claims: dict[str, Any],
                    mandate_token: str = "", shopper_ref: str = "",
-                   contact_key: str = "", surface: str = "widget") -> None:
-    """Execute one shopper turn end to end, emitting events as it goes."""
+                   contact_key: str = "", surface: str = "widget",
+                   notes: list[str] | None = None,
+                   also_sold_at: list[str] | None = None) -> None:
+    """Execute one shopper turn end to end, emitting events as it goes.
+
+    `notes` are facts the surface learned before the turn (for instance that
+    two other shops sell what was asked for). They are appended to the system
+    prompt as information; what to do about them stays the model's call."""
     # The mandate token rides along because the shop verifies it itself before
     # creating an order (spec 6.6 mutual verification). shopper_ref is the
     # browser-held reference and contact_key the portable one; together they
     # let "my usual order" find a basket bought on another device.
     ctx = {"shop_url": shop["url"], "shop_id": shop["shop_id"], "cart_id": cart_id,
            "mandate_token": mandate_token, "shopper_ref": shopper_ref,
-           "contact_key": contact_key, "turn_id": run.run_id, "surface": surface}
+           "contact_key": contact_key, "turn_id": run.run_id, "surface": surface,
+           "also_sold_at": list(also_sold_at or [])}
     loop = asyncio.get_running_loop()
 
     try:
@@ -171,7 +190,13 @@ async def run_turn(run: Run, shop: dict[str, Any], cart_id: str, user_text: str,
     prior = CONVERSATIONS.get(convo_key)
     if prior is None:
         prior = [{"role": t["role"], "content": t["content"]} for t in (history or [])[-6:]]
-    messages: list[dict[str, Any]] = [{"role": "system", "content": llm.system_prompt(context)}]
+    system = llm.system_prompt(context)
+    if surface == "whatsapp":
+        system += ("\n\nFORMAT\n- This is WhatsApp: plain text only. No markdown, no asterisks, "
+                   "no headings. One item per line.")
+    if notes:
+        system += "\n\nNOTES FOR THIS TURN\n" + "\n".join(f"- {n}" for n in notes)
+    messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
     messages.extend(prior)
     messages.append({"role": "user", "content": user_text})
 
@@ -271,6 +296,16 @@ async def run_turn(run: Run, shop: dict[str, Any], cart_id: str, user_text: str,
                                 "A contact unlocks history only, never money",
                                 {"run_id": run.run_id, "shop_id": shop["shop_id"],
                                  "orders_claimed": result.get("orders_claimed", 0)})
+
+            if ok and name == "switch_shop" and result.get("switched"):
+                # The model chose to take the shopper to another shop. The
+                # surface that owns the conversation acts on this event.
+                run.emit("switch_shop", shop_key=result["shop_key"], shop=result["shop"])
+                chainlog.append("buyer", "assistant_switched_shop",
+                                f"the assistant moved the shopper from {shop['shop_id']} to "
+                                f"{result['shop_key']} at their request; the basket here is untouched",
+                                {"run_id": run.run_id, "from": shop["shop_id"],
+                                 "to": result["shop_key"]})
 
             if ok and name == "start_checkout":
                 # The agent has produced a quote and stopped. Everything the

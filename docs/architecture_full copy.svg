@@ -1,0 +1,202 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1000" viewBox="0 0 1400 1000" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#5c6a64"/></marker><marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0f6b52"/></marker></defs>
+<rect width="1400" height="1000" fill="#f4f6f4" rx="6"/>
+<text x="700.0" y="32" font-size="20" fill="#12181c" text-anchor="middle" font-weight="700">VelcrowAI - full architecture</text>
+<text x="700.0" y="52" font-size="11.5" fill="#5c6a64" text-anchor="middle">surfaces on the left, the layer in the middle, the merchant network on the right; external services above, data and proof below</text>
+<rect x="24" y="78" width="300" height="560" rx="7" fill="none" stroke="#c9d3ce" stroke-width="1.2"/>
+<text x="36" y="96" font-size="11.5" fill="#5c6a64" text-anchor="start" font-weight="700">SURFACES - who arrives, and how</text>
+<rect x="40" y="100" width="268" height="72" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="174.0" y="125.375" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Storefronts + widget</text>
+<text x="174.0" y="140.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">React :5173 / :5174, velcrow.js</text>
+<text x="174.0" y="155.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">shopper types plain language</text>
+<rect x="40" y="188" width="268" height="72" rx="5" fill="#ffffff" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="174.0" y="213.375" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">WhatsApp (shopper&#8217;s phone)</text>
+<text x="174.0" y="228.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">Meta Cloud API, test number</text>
+<text x="174.0" y="243.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">text, tap-to-approve, OTP login</text>
+<rect x="40" y="276" width="268" height="72" rx="5" fill="#ffffff" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="174.0" y="301.375" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Claude Desktop</text>
+<text x="174.0" y="316.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">MCP client - 9 tools</text>
+<text x="174.0" y="331.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">browser-link login, exact-amount pay</text>
+<rect x="40" y="364" width="268" height="72" rx="5" fill="#ffffff" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="174.0" y="389.375" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">A stranger&#8217;s ACP client</text>
+<text x="174.0" y="404.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">reads one manifest, buys</text>
+<text x="174.0" y="419.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">imports none of our code</text>
+<rect x="40" y="452" width="268" height="72" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="174.0" y="477.375" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Buyer app + Audit room</text>
+<text x="174.0" y="492.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">React :5175</text>
+<text x="174.0" y="507.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">goals, chains, disputes, Revenue Lab</text>
+<rect x="40" y="540" width="268" height="72" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="174.0" y="565.375" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Merchant console</text>
+<text x="174.0" y="580.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">/console on each storefront</text>
+<text x="174.0" y="595.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">proposals, ledger, outbox, cheat toggle</text>
+<rect x="1076" y="78" width="300" height="560" rx="7" fill="none" stroke="#c9d3ce" stroke-width="1.2"/>
+<text x="1088" y="96" font-size="11.5" fill="#5c6a64" text-anchor="start" font-weight="700">THE MERCHANT NETWORK</text>
+<text x="1088" y="111" font-size="10.5" fill="#5c6a64" text-anchor="start" font-style="italic">one codebase, six configs, never see each other</text>
+<rect x="1092" y="118" width="128" height="50" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1156.0" y="139.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">FreshKart</text>
+<text x="1156.0" y="154.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">grocery :8001</text>
+<rect x="1232" y="118" width="128" height="50" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1296.0" y="139.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">DailyMandi</text>
+<text x="1296.0" y="154.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">grocery :8005</text>
+<rect x="1092" y="180" width="128" height="50" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1156.0" y="201.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Loomcraft</text>
+<text x="1156.0" y="216.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">apparel :8002</text>
+<rect x="1232" y="180" width="128" height="50" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1296.0" y="201.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">SilkRoute</text>
+<text x="1296.0" y="216.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">apparel :8004</text>
+<rect x="1092" y="242" width="128" height="50" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1156.0" y="263.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">UrbanNest</text>
+<text x="1156.0" y="278.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">home :8006</text>
+<rect x="1232" y="242" width="128" height="50" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1296.0" y="263.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">MittiCraft</text>
+<text x="1296.0" y="278.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">home :8007</text>
+<rect x="1092" y="312" width="268" height="176" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1226.0" y="351.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Each shop API (FastAPI + SQLite)</text>
+<text x="1226.0" y="366.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">catalog, carts, coupon engine</text>
+<text x="1226.0" y="381.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">demand ledger (4 states), reservations</text>
+<text x="1226.0" y="396.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">negotiation policy - own cost book</text>
+<text x="1226.0" y="411.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">ACP checkout 2026-04-17</text>
+<text x="1226.0" y="426.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">/.well-known manifest + capabilities</text>
+<text x="1226.0" y="441.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">orders with source, price lock</text>
+<text x="1226.0" y="456.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">its own SHA-256 hash chain</text>
+<text x="1226" y="520" font-size="11" fill="#5c6a64" text-anchor="middle" font-style="italic">all arithmetic happens here;</text>
+<text x="1226" y="536" font-size="11" fill="#5c6a64" text-anchor="middle" font-style="italic">the models never see a stock number</text>
+<text x="1226" y="580" font-size="11.5" fill="#0f6b52" text-anchor="middle" font-weight="600">add a merchant = one YAML + one catalog</text>
+<rect x="352" y="78" width="700" height="560" rx="7" fill="none" stroke="#c9d3ce" stroke-width="1.2"/>
+<text x="364" y="96" font-size="11.5" fill="#5c6a64" text-anchor="start" font-weight="700">THE VELCROWAI LAYER  :8003  -  agents decide, gates refuse</text>
+<rect x="370" y="104" width="664" height="60" rx="5" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.5"/>
+<text x="702.0" y="123.375" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Orchestrator</text>
+<text x="702.0" y="138.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">model judges intent (instruction vs cross-shop goal) - code picks the shop from live catalogs</text>
+<text x="702.0" y="153.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">scheduler wakes the unattended agents - every handoff between agents is chain-logged</text>
+<rect x="370" y="178" width="210" height="96" rx="5" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.5"/>
+<text x="475.0" y="207.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Shopping assistant</text>
+<text x="475.0" y="222.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">LLM tool loop, 9 tools</text>
+<text x="475.0" y="237.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">search, cart, coupons, reorder,</text>
+<text x="475.0" y="252.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">reserve, checkout - widget + WhatsApp</text>
+<rect x="597" y="178" width="210" height="96" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="702.0" y="207.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Buyer agent</text>
+<text x="702.0" y="222.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">rules + earned trust, zero LLM</text>
+<text x="702.0" y="237.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">goal -> budget = mandate cap</text>
+<text x="702.0" y="252.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">6 shops ranked, rule-breakers refused</text>
+<rect x="824" y="178" width="210" height="96" rx="5" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.5"/>
+<text x="929.0" y="207.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Growth agent</text>
+<text x="929.0" y="222.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">LLM tool loop, 7 tools, hourly</text>
+<text x="929.0" y="237.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">reads ledger, simulates, 3 code gates</text>
+<text x="929.0" y="252.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">card - or honest no_action; bandit learns</text>
+<rect x="370" y="290" width="318" height="120" rx="5" fill="#f5e2dd" stroke="#a8341f" stroke-width="1.5"/>
+<text x="529.0" y="316.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Outreach + webhook gate</text>
+<text x="529.0" y="331.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">X-Hub-Signature-256 verified, replay-deduped</text>
+<text x="529.0" y="346.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">restock -> basket completion offer</text>
+<text x="529.0" y="361.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">quiet cart -> one reminder; say-once in code</text>
+<text x="529.0" y="376.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">OTP login (hashed, 3 tries) + link login</text>
+<text x="529.0" y="391.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">honest outbox when transport is off</text>
+<rect x="716" y="290" width="318" height="120" rx="5" fill="#f5e2dd" stroke="#a8341f" stroke-width="1.5"/>
+<text x="875.0" y="316.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Trust core - the gates</text>
+<text x="875.0" y="331.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">mandate.py: HMAC session mandates, caps, revocation</text>
+<text x="875.0" y="346.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">approval.py: cart-bound, exact amount, nonce, 5 min</text>
+<text x="875.0" y="361.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">wallet.py: 76 lines, 5 checks, ONLY door to money</text>
+<text x="875.0" y="376.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">negotiation tokens: signed, 120 s, single use</text>
+<text x="875.0" y="391.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">trust.py scores - bandit.py learns - chainlog.py records</text>
+<rect x="716" y="424" width="318" height="54" rx="5" fill="#d9e8e1" stroke="#0f6b52" stroke-width="2"/>
+<text x="875.0" y="440.375" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">wallet.py - five ordered checks</text>
+<text x="875.0" y="455.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">mandate valid -> shop allowed -> under caps</text>
+<text x="875.0" y="470.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">-> amount == approved -> only then pay</text>
+<rect x="370" y="424" width="318" height="54" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="529.0" y="440.375" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">MCP server (separate process, stdio)</text>
+<text x="529.0" y="455.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">9 tools over the same endpoints; login gate;</text>
+<text x="529.0" y="470.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">pay_quote is the only tool that can reach money</text>
+<line x1="475" y1="164" x2="475" y2="178" stroke="#8a6410" stroke-width="1.6" marker-end="url(#arr)"/>
+<line x1="702" y1="164" x2="702" y2="178" stroke="#8a6410" stroke-width="1.6" marker-end="url(#arr)"/>
+<line x1="929" y1="164" x2="929" y2="178" stroke="#8a6410" stroke-width="1.6" marker-end="url(#arr)"/>
+<line x1="475" y1="274" x2="475" y2="290" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<line x1="875" y1="274" x2="875" y2="290" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<line x1="875" y1="410" x2="875" y2="424" stroke="#0f6b52" stroke-width="1.6" marker-end="url(#arrg)"/>
+<text x="702" y="498" font-size="11.5" fill="#0f6b52" text-anchor="middle" font-weight="600">every agent, every surface, every dialect -> the same wallet.py</text>
+<rect x="370" y="512" width="210" height="56" rx="5" fill="#ffffff" stroke="#7a5ea8" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="475.0" y="529.375" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">OpenAI - gpt-4o-mini</text>
+<text x="475.0" y="544.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">tool-calling for the 3 LLM agents + router</text>
+<text x="475.0" y="559.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">only agent/llm.py may import it</text>
+<rect x="597" y="512" width="210" height="56" rx="5" fill="#ffffff" stroke="#7a5ea8" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="702.0" y="529.375" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Meta WhatsApp Cloud API</text>
+<text x="702.0" y="544.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">sends + signed webhooks in</text>
+<text x="702.0" y="559.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">via cloudflared tunnel</text>
+<rect x="824" y="512" width="210" height="56" rx="5" fill="#ffffff" stroke="#7a5ea8" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="929.0" y="529.375" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Razorpay (test mode)</text>
+<text x="929.0" y="544.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">a real test order per paid sale</text>
+<text x="929.0" y="559.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">only common/wallet.py may import it</text>
+<text x="702" y="590" font-size="10.5" fill="#7a5ea8" text-anchor="middle" font-style="italic">dashed purple = someone else&#8217;s service; each is reachable from exactly one module</text>
+<line x1="308" y1="136" x2="352" y2="136" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="330.0" y="130.0" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">chat, pay</text>
+<line x1="308" y1="224" x2="352" y2="224" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="330.0" y="218.0" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">webhook</text>
+<line x1="308" y1="312" x2="370" y2="440" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="330" y="300" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">stdio</text>
+<line x1="308" y1="400" x2="352" y2="400" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="330.0" y="394.0" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">ACP</text>
+<line x1="308" y1="488" x2="352" y2="488" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="330.0" y="482.0" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">goals</text>
+<line x1="308" y1="576" x2="352" y2="576" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="330.0" y="570.0" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">run now</text>
+<line x1="1052" y1="230" x2="1076" y2="230" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="1064" y="220" font-size="10" fill="#5c6a64" text-anchor="middle" font-style="italic">tools</text>
+<line x1="1076" y1="300" x2="1052" y2="300" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="1064" y="316" font-size="10" fill="#5c6a64" text-anchor="middle" font-style="italic">callbacks</text>
+<line x1="1052" y1="444" x2="1076" y2="444" stroke="#0f6b52" stroke-width="1.6" marker-end="url(#arrg)"/>
+<text x="1064" y="460" font-size="10" fill="#0f6b52" text-anchor="middle" font-style="italic">pay</text>
+<text x="1226" y="604" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">in: catalog, cart, fulfil, order, negotiate</text>
+<text x="1226" y="618" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">back: restock callbacks, typed refusals</text>
+<text x="1226" y="632" font-size="10.5" fill="#0f6b52" text-anchor="middle" font-style="italic">and one charge - exactly the approved amount</text>
+<rect x="24" y="660" width="1352" height="316" rx="7" fill="none" stroke="#c9d3ce" stroke-width="1.2"/>
+<text x="36" y="678" font-size="11.5" fill="#5c6a64" text-anchor="start" font-weight="700">DATA AND PROOF - where everything lands</text>
+<text x="36" y="693" font-size="10.5" fill="#5c6a64" text-anchor="start" font-style="italic">append-only where it matters; every actor writes its own record</text>
+<rect x="40" y="700" width="300" height="112" rx="5" fill="#d9e8e1" stroke="#0f6b52" stroke-width="2"/>
+<text x="190.0" y="737.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Seven SHA-256 hash chains</text>
+<text x="190.0" y="752.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">buyer + one per shop, append-only</text>
+<text x="190.0" y="767.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">every action of every actor, with a why</text>
+<text x="190.0" y="782.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">tamper one entry -> red at that index</text>
+<rect x="356" y="700" width="300" height="112" rx="5" fill="#eef1ef" stroke="#8a958f" stroke-width="1.5"/>
+<text x="506.0" y="737.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">trust.sqlite</text>
+<text x="506.0" y="752.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">revoked mandates, spend reservations</text>
+<text x="506.0" y="767.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">single-use approval nonces</text>
+<text x="506.0" y="782.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">bandit posteriors per strategy</text>
+<rect x="672" y="700" width="300" height="112" rx="5" fill="#eef1ef" stroke="#8a958f" stroke-width="1.5"/>
+<text x="822.0" y="737.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">whatsapp.sqlite</text>
+<text x="822.0" y="752.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">offers (restock / cart / quote / goal)</text>
+<text x="822.0" y="767.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">outbox - every message, sent or not</text>
+<text x="822.0" y="782.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">chats, cart activity, login codes, link sessions</text>
+<rect x="988" y="700" width="372" height="112" rx="5" fill="#eef1ef" stroke="#8a958f" stroke-width="1.5"/>
+<text x="1174.0" y="737.875" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Six shop databases (SQLite)</text>
+<text x="1174.0" y="752.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">stock, carts, orders (with source), reservations</text>
+<text x="1174.0" y="767.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">demand ledger with cart lineage</text>
+<text x="1174.0" y="782.875" font-size="11.0" fill="#5c6a64" text-anchor="middle">proposals, runtime coupons, ACP sessions</text>
+<rect x="40" y="832" width="452" height="120" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="266.0" y="866.375" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Audit room  :5175/audit</text>
+<text x="266.0" y="881.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">verify chains - tamper on purpose - red at the index</text>
+<text x="266.0" y="896.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">disputes and negotiations side by side</text>
+<text x="266.0" y="911.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">traces in plain sentences; orchestrator handoffs</text>
+<text x="266.0" y="926.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">Revenue Lab: paid orders only, disjoint terms</text>
+<rect x="508" y="832" width="452" height="120" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="734.0" y="866.375" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Proof scripts  lab/</text>
+<text x="734.0" y="881.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">determinism_check - same sentence, two worlds, must differ</text>
+<text x="734.0" y="896.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">negotiate_demo - bought / closed at floor / walked</text>
+<text x="734.0" y="911.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">third_party_buyer - a stranger pays at every shop</text>
+<text x="734.0" y="926.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">revenue_lab, seed_demo, regress</text>
+<rect x="976" y="832" width="384" height="120" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1168.0" y="866.375" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="600">Tests and the failure log</text>
+<text x="1168.0" y="881.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">404 pytest tests; guards: only wallet imports Razorpay,</text>
+<text x="1168.0" y="896.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">only llm.py imports OpenAI, only whatsapp.py talks to Meta</text>
+<text x="1168.0" y="911.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">BREAKAGE.md - every real bug, cause, fix, regression test</text>
+<text x="1168.0" y="926.375" font-size="11.0" fill="#5c6a64" text-anchor="middle">docs/WHAT_BROKE.md - the ten worth telling</text>
+<rect x="40" y="980" width="12" height="12" rx="2" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.4"/>
+<text x="58" y="990" font-size="11" fill="#5c6a64" text-anchor="start">a model deciding</text>
+<rect x="255" y="980" width="12" height="12" rx="2" fill="#f5e2dd" stroke="#a8341f" stroke-width="1.4"/>
+<text x="273" y="990" font-size="11" fill="#5c6a64" text-anchor="start">a code gate that can refuse</text>
+<rect x="470" y="980" width="12" height="12" rx="2" fill="#d9e8e1" stroke="#0f6b52" stroke-width="1.4"/>
+<text x="488" y="990" font-size="11" fill="#5c6a64" text-anchor="start">the safe path / proof</text>
+<rect x="685" y="980" width="12" height="12" rx="2" fill="#ffffff" stroke="#7a5ea8" stroke-width="1.4" stroke-dasharray="4,3"/>
+<text x="703" y="990" font-size="11" fill="#5c6a64" text-anchor="start">external service</text>
+<rect x="900" y="980" width="12" height="12" rx="2" fill="#ffffff" stroke="#a8341f" stroke-width="1.4" stroke-dasharray="4,3"/>
+<text x="918" y="990" font-size="11" fill="#5c6a64" text-anchor="start">someone else&#8217;s client</text>
+<rect x="1115" y="980" width="12" height="12" rx="2" fill="#eef1ef" stroke="#8a958f" stroke-width="1.4"/>
+<text x="1133" y="990" font-size="11" fill="#5c6a64" text-anchor="start">data store</text>
+</svg>

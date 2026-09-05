@@ -23,7 +23,10 @@ from typing import Any
 
 # What the merchant agent may lead with (spec 4.6's arms, minus no_offer -
 # "propose nothing" is a loop outcome, not a strategy to rank).
-ARMS = ("restock", "campaign", "coupon", "price_alert")
+# price_alert stays as an arm so past decisions still read; the agent can no
+# longer file one (it carried no checkable number and was used as a disguised
+# "notify", found live). notify is the honest card for that.
+ARMS = ("restock", "notify", "campaign", "coupon", "price_alert")
 
 
 def _db() -> sqlite3.Connection:

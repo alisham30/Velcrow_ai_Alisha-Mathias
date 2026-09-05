@@ -50,3 +50,4 @@ def test_the_unattended_agents_are_registered_in_one_place(env):
     ids = {j["id"] for j in sched.jobs}
     assert ids == {"growth-freshkart", "growth-loomcraft", "whatsapp-abandoned-sweep"}
     assert all(j["max_instances"] == 1 for j in sched.jobs)   # never self-overlapping
+

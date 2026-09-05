@@ -62,8 +62,6 @@ AGENTS: dict[str, dict[str, str]] = {
 
 
 _GOALISH = None  # compiled lazily
-
-
 def route(text: str, current_key: str | None, shops: dict[str, str],
           choose_shop: Callable[[str, str | None], str]) -> dict[str, str]:
     """Judge one message: {'mode': 'shop'|'goal', 'shop': key}.

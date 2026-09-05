@@ -229,6 +229,13 @@ def search_catalog(ctx: dict[str, Any], query: str, max_price_paise: int | None 
         for _, p in scored[:8]
     ]
     out: dict[str, Any] = {"query": query, "matches": matches, "match_count": len(matches)}
+    if ctx.get("also_sold_at"):
+        # The surface learned that other shops sell what was asked for. A
+        # note in the prompt was ignored; a field in the result is read.
+        out["also_sold_at"] = list(ctx["also_sold_at"])
+        out["note"] = (f"This is ALSO sold by {', '.join(ctx['also_sold_at'])}. Call "
+                       "search_network now and show the shopper every shop's options with "
+                       "prices before offering to add anything.")
     if max_price_paise is not None:
         out["max_price_paise"] = int(max_price_paise)
         if not matches:
@@ -601,8 +608,70 @@ def start_checkout(ctx: dict[str, Any], **_: Any) -> dict[str, Any]:
     }
 
 
+def _installed() -> dict[str, dict[str, Any]]:
+    from agent import app as agent_app        # lazy: agent.app imports the runtime
+    return agent_app.INSTALLED_SHOPS
+
+
+def search_network(ctx: dict[str, Any], query: str, **_: Any) -> dict[str, Any]:
+    """Search EVERY shop on the network for the same words. The assistant is
+    installed in one shop, but the shopper reached it through a network of
+    six; when they ask what else is out there, or this shop has nothing, the
+    honest answer is every shop's own matches at every shop's own prices.
+    Stock is reported as in/out, never as a number - same rule as at home."""
+    words = {_stem(w) for w in query.lower().split() if w}
+    shops_out: list[dict[str, Any]] = []
+    for key, ins in _installed().items():
+        try:
+            with _client(ins["url"]) as http:
+                catalog = http.get("/catalog").json()
+        except Exception:
+            continue
+        matches = []
+        for p in catalog:
+            hay = {_stem(w) for w in
+                   f"{p.get('name', '')} {p.get('category', '')} {' '.join(p.get('tags', []))}"
+                   .lower().replace("(", " ").replace(")", " ").split()}
+            if words & hay:
+                matches.append({**_brief(p), "availability": _availability(int(p.get("stock", 0)))})
+            if len(matches) == 3:
+                break
+        if matches:
+            shops_out.append({"shop_key": key, "shop": ins["name"],
+                              "category": ins["category"],
+                              "here": ins["shop_id"] == ctx.get("shop_id"),
+                              "matches": matches})
+    return {"query": query, "shops": shops_out, "shop_count": len(shops_out),
+            "note": ("Show the shopper each shop's matches with price_display. To buy from a "
+                     "shop that is not this one, call switch_shop with its shop_key first "
+                     "(WhatsApp only); in the widget, tell them the shop's name.")}
+
+
+def switch_shop(ctx: dict[str, Any], shop: str, **_: Any) -> dict[str, Any]:
+    """Move this WhatsApp conversation to another shop on the network. The
+    basket at the current shop is left exactly as it is; the shopper gets a
+    basket at the new shop. Only the shopper's own words may cause this."""
+    if ctx.get("surface") != "whatsapp":
+        raise ToolError("switching shops is only possible on WhatsApp; the shopper is "
+                        "already inside this shop's page", "NOT_ON_THIS_SURFACE")
+    want = str(shop or "").strip().lower()
+    for key, ins in _installed().items():
+        if want in (key, ins["shop_id"], ins["name"].lower()):
+            if ins["shop_id"] == ctx.get("shop_id"):
+                return {"switched": False, "shop_key": key, "shop": ins["name"],
+                        "note": "the shopper is already at this shop"}
+            ctx["switch_to"] = key
+            return {"switched": True, "shop_key": key, "shop": ins["name"],
+                    "category": ins["category"],
+                    "note": (f"From the shopper's next message, {ins['name']} answers. "
+                             "Tell them so in one line; their basket here stays as it is.")}
+    raise ToolError(f"no shop called '{shop}' on the network", "UNKNOWN_SHOP")
+
+
 REGISTRY = {
     "search_catalog": search_catalog,
+    "search_network": search_network,
+    "switch_shop": switch_shop,
     "add_to_cart": add_to_cart,
     "update_qty": update_qty,
     "remove_line": remove_line,
@@ -658,6 +727,13 @@ def summarise(name: str, result: dict[str, Any]) -> str:
     if name == "start_checkout":
         return (f"quote {result['txn_ref']} for {result['charge_display']}, "
                 "awaiting the shopper's approval")
+    if name == "search_network":
+        n = result.get("shop_count", 0)
+        names = ", ".join(s["shop"] for s in result.get("shops") or [])
+        return f"{n} shop(s) sell it" + (f": {names}" if names else "")
+    if name == "switch_shop":
+        return (f"moved the chat to {result['shop']}" if result.get("switched")
+                else f"already at {result.get('shop', 'this shop')}")
     return "ok"
 
 
@@ -702,6 +778,10 @@ def plain_display(name: str, args: dict[str, Any]) -> str:
         return "Looked up the shopper's history from the contact they gave"
     if name == "start_checkout":
         return "Opened the approval gate - payment now waits on the shopper"
+    if name == "search_network":
+        return f'Looked across every shop on the network for "{a.get("query", "")}"'
+    if name == "switch_shop":
+        return f"Took the shopper over to {a.get('shop', 'another shop')}"
     return call_display(name, a)    # a tool this map has never met stays honest
 
 

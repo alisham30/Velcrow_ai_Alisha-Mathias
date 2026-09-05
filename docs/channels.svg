@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="600" viewBox="0 0 1180 600" font-family="Segoe UI, Arial, sans-serif">
+<rect width="1180" height="600" fill="#ffffff"/>
+<text x="40" y="44" font-size="20" fill="#1c1c1c" text-anchor="start" font-weight="700">One agent, every channel of the merchant&#8217;s trade</text>
+<text x="40" y="68" font-size="13.5" fill="#5a5a5a" text-anchor="start">what breaks at each door today - and what the same agent does there instead</text>
+<rect x="430" y="90" width="320" height="46" rx="23" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.8"/>
+<text x="590" y="119" font-size="15" fill="#8a6410" text-anchor="middle" font-weight="700">ONE AGENT BRAIN</text>
+<line x1="590" y1="136" x2="590" y2="154" stroke="#8a6410" stroke-width="2" stroke-linecap="round"/>
+<line x1="220" y1="154" x2="960" y2="154" stroke="#8a6410" stroke-width="2" stroke-linecap="round"/>
+<rect x="40" y="172" width="360" height="150" rx="12" fill="#ffffff" stroke="#d9d9d9" stroke-width="1.4"/>
+<line x1="220.0" y1="154" x2="220.0" y2="172" stroke="#8a6410" stroke-width="2" stroke-linecap="round"/>
+<text x="56" y="198" font-size="15" fill="#1c1c1c" text-anchor="start" font-weight="700">Shop page</text>
+<text x="384" y="198" font-size="11.5" fill="#5a5a5a" text-anchor="end">the widget</text>
+<line x1="56" y1="210" x2="384" y2="210" stroke="#d9d9d9" stroke-width="1" stroke-linecap="round"/>
+<text x="56" y="232" font-size="10.5" fill="#e8613c" text-anchor="start" font-weight="700">TODAY</text>
+<text x="118" y="232" font-size="12" fill="#1c1c1c" text-anchor="start">search box, no help;</text>
+<text x="118" y="249" font-size="12" fill="#1c1c1c" text-anchor="start">coupon missed</text>
+<text x="56" y="278" font-size="10.5" fill="#1f8a70" text-anchor="start" font-weight="700">WITH IT</text>
+<text x="118" y="278" font-size="12" fill="#1f8a70" text-anchor="start" font-weight="600">&#8220;add 2 kg lemons&#8221; - it searches,</text>
+<text x="118" y="295" font-size="12" fill="#1f8a70" text-anchor="start" font-weight="600">adds, claims the coupon, pairs</text>
+<rect x="410" y="172" width="360" height="150" rx="12" fill="#ffffff" stroke="#d9d9d9" stroke-width="1.4"/>
+<line x1="590.0" y1="154" x2="590.0" y2="172" stroke="#8a6410" stroke-width="2" stroke-linecap="round"/>
+<text x="426" y="198" font-size="15" fill="#1c1c1c" text-anchor="start" font-weight="700">WhatsApp</text>
+<text x="754" y="198" font-size="11.5" fill="#5a5a5a" text-anchor="end">the customer&#8217;s pocket</text>
+<line x1="426" y1="210" x2="754" y2="210" stroke="#d9d9d9" stroke-width="1" stroke-linecap="round"/>
+<text x="426" y="232" font-size="10.5" fill="#e8613c" text-anchor="start" font-weight="700">TODAY</text>
+<text x="488" y="232" font-size="12" fill="#1c1c1c" text-anchor="start">no shop lives in your chat;</text>
+<text x="488" y="249" font-size="12" fill="#1c1c1c" text-anchor="start">restocks and carts forgotten</text>
+<text x="426" y="278" font-size="10.5" fill="#1f8a70" text-anchor="start" font-weight="700">WITH IT</text>
+<text x="488" y="278" font-size="12" fill="#1f8a70" text-anchor="start" font-weight="600">text to shop, tap to pay;</text>
+<text x="488" y="295" font-size="12" fill="#1f8a70" text-anchor="start" font-weight="600">restock rescue, one reminder</text>
+<rect x="780" y="172" width="360" height="150" rx="12" fill="#ffffff" stroke="#d9d9d9" stroke-width="1.4"/>
+<line x1="960.0" y1="154" x2="960.0" y2="172" stroke="#8a6410" stroke-width="2" stroke-linecap="round"/>
+<text x="796" y="198" font-size="15" fill="#1c1c1c" text-anchor="start" font-weight="700">Cross-shop</text>
+<text x="1124" y="198" font-size="11.5" fill="#5a5a5a" text-anchor="end">a goal with a budget</text>
+<line x1="796" y1="210" x2="1124" y2="210" stroke="#d9d9d9" stroke-width="1" stroke-linecap="round"/>
+<text x="796" y="232" font-size="10.5" fill="#e8613c" text-anchor="start" font-weight="700">TODAY</text>
+<text x="858" y="232" font-size="12" fill="#1c1c1c" text-anchor="start">cheaper shop unknown;</text>
+<text x="858" y="249" font-size="12" fill="#1c1c1c" text-anchor="start">overpays or gives up</text>
+<text x="796" y="278" font-size="10.5" fill="#1f8a70" text-anchor="start" font-weight="700">WITH IT</text>
+<text x="858" y="278" font-size="12" fill="#1f8a70" text-anchor="start" font-weight="600">6 shops ranked; over-budget refused;</text>
+<text x="858" y="295" font-size="12" fill="#1f8a70" text-anchor="start" font-weight="600">your budget becomes the cap</text>
+<rect x="40" y="336" width="360" height="150" rx="12" fill="#ffffff" stroke="#d9d9d9" stroke-width="1.4"/>
+<text x="56" y="362" font-size="15" fill="#1c1c1c" text-anchor="start" font-weight="700">Other AIs</text>
+<text x="384" y="362" font-size="11.5" fill="#5a5a5a" text-anchor="end">ACP protocol</text>
+<line x1="56" y1="374" x2="384" y2="374" stroke="#d9d9d9" stroke-width="1" stroke-linecap="round"/>
+<text x="56" y="396" font-size="10.5" fill="#e8613c" text-anchor="start" font-weight="700">TODAY</text>
+<text x="118" y="396" font-size="12" fill="#1c1c1c" text-anchor="start">your shop is invisible</text>
+<text x="118" y="413" font-size="12" fill="#1c1c1c" text-anchor="start">to buying agents</text>
+<text x="56" y="442" font-size="10.5" fill="#1f8a70" text-anchor="start" font-weight="700">WITH IT</text>
+<text x="118" y="442" font-size="12" fill="#1f8a70" text-anchor="start" font-weight="600">one manifest; a stranger&#8217;s agent</text>
+<text x="118" y="459" font-size="12" fill="#1f8a70" text-anchor="start" font-weight="600">discovers, reserves, pays</text>
+<rect x="410" y="336" width="360" height="150" rx="12" fill="#ffffff" stroke="#d9d9d9" stroke-width="1.4"/>
+<text x="426" y="362" font-size="15" fill="#1c1c1c" text-anchor="start" font-weight="700">AI assistants</text>
+<text x="754" y="362" font-size="11.5" fill="#5a5a5a" text-anchor="end">MCP - Claude, others</text>
+<line x1="426" y1="374" x2="754" y2="374" stroke="#d9d9d9" stroke-width="1" stroke-linecap="round"/>
+<text x="426" y="396" font-size="10.5" fill="#e8613c" text-anchor="start" font-weight="700">TODAY</text>
+<text x="488" y="396" font-size="12" fill="#1c1c1c" text-anchor="start">assistants can&#8217;t shop safely;</text>
+<text x="488" y="413" font-size="12" fill="#1c1c1c" text-anchor="start">no login, no limits</text>
+<text x="426" y="442" font-size="10.5" fill="#1f8a70" text-anchor="start" font-weight="700">WITH IT</text>
+<text x="488" y="442" font-size="12" fill="#1f8a70" text-anchor="start" font-weight="600">Claude shops the network; link login,</text>
+<text x="488" y="459" font-size="12" fill="#1f8a70" text-anchor="start" font-weight="600">exact-amount pay, hard caps</text>
+<rect x="780" y="336" width="360" height="150" rx="12" fill="#ffffff" stroke="#d9d9d9" stroke-width="1.4"/>
+<text x="796" y="362" font-size="15" fill="#1c1c1c" text-anchor="start" font-weight="700">Merchant back office</text>
+<text x="1124" y="362" font-size="11.5" fill="#5a5a5a" text-anchor="end">the growth agent</text>
+<line x1="796" y1="374" x2="1124" y2="374" stroke="#d9d9d9" stroke-width="1" stroke-linecap="round"/>
+<text x="796" y="396" font-size="10.5" fill="#e8613c" text-anchor="start" font-weight="700">TODAY</text>
+<text x="858" y="396" font-size="12" fill="#1c1c1c" text-anchor="start">lost demand invisible;</text>
+<text x="858" y="413" font-size="12" fill="#1c1c1c" text-anchor="start">restocks guessed, campaigns blind</text>
+<text x="796" y="442" font-size="10.5" fill="#1f8a70" text-anchor="start" font-weight="700">WITH IT</text>
+<text x="858" y="442" font-size="12" fill="#1f8a70" text-anchor="start" font-weight="600">hourly: reads the ledger, simulates,</text>
+<text x="858" y="459" font-size="12" fill="#1f8a70" text-anchor="start" font-weight="600">files a card - or honestly nothing</text>
+<line x1="220.0" y1="322" x2="220.0" y2="336" stroke="#8a6410" stroke-width="2" stroke-linecap="round"/>
+<line x1="590.0" y1="322" x2="590.0" y2="336" stroke="#8a6410" stroke-width="2" stroke-linecap="round"/>
+<line x1="960.0" y1="322" x2="960.0" y2="336" stroke="#8a6410" stroke-width="2" stroke-linecap="round"/>
+<rect x="40" y="506" width="1100" height="54" rx="14" fill="#e6f4ef" stroke="#1f8a70" stroke-width="1.8"/>
+<text x="590" y="529" font-size="14" fill="#1f8a70" text-anchor="middle" font-weight="700">ESCROW BEHIND EVERY DOOR - one wallet, five checks, money moves only when every condition is met</text>
+<text x="590" y="548" font-size="12" fill="#5a5a5a" text-anchor="middle">no channel, human or AI, can pay a paisa the shopper did not approve</text>
+<text x="40" y="582" font-size="12" fill="#5a5a5a" text-anchor="start">Gold: the one agent brain.   Coral: what breaks today.   Teal: what the agent does there - and the escrow under all of it.</text>
+</svg>

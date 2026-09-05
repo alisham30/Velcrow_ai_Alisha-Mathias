@@ -1,0 +1,184 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="960" viewBox="0 0 1400 960" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#5c6a64"/></marker><marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0f6b52"/></marker></defs>
+<rect width="1400" height="960" fill="#f4f6f4" rx="6"/>
+<text x="700.0" y="32" font-size="20" fill="#12181c" text-anchor="middle" font-weight="700">VelcrowAI - architecture and tech stack</text>
+<rect x="24" y="78" width="300" height="560" rx="7" fill="none" stroke="#c9d3ce" stroke-width="1.2"/>
+<text x="36" y="96" font-size="11.5" fill="#5c6a64" text-anchor="start" font-weight="700">SURFACES</text>
+<rect x="40" y="100" width="268" height="72" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="174.0" y="124.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Storefronts + widget</text>
+<text x="174.0" y="140.55" font-size="12" fill="#5c6a64" text-anchor="middle">React 18, Vite, Tailwind</text>
+<text x="174.0" y="156.55" font-size="12" fill="#5c6a64" text-anchor="middle">widget: vanilla JS (velcrow.js)</text>
+<rect x="40" y="188" width="268" height="72" rx="5" fill="#ffffff" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="174.0" y="212.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">WhatsApp</text>
+<text x="174.0" y="228.55" font-size="12" fill="#5c6a64" text-anchor="middle">Meta WhatsApp Cloud API v25</text>
+<text x="174.0" y="244.55" font-size="12" fill="#5c6a64" text-anchor="middle">cloudflared tunnel</text>
+<rect x="40" y="276" width="268" height="72" rx="5" fill="#ffffff" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="174.0" y="300.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Claude Desktop</text>
+<text x="174.0" y="316.55" font-size="12" fill="#5c6a64" text-anchor="middle">MCP client</text>
+<text x="174.0" y="332.55" font-size="12" fill="#5c6a64" text-anchor="middle">stdio transport</text>
+<rect x="40" y="364" width="268" height="72" rx="5" fill="#ffffff" stroke="#a8341f" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="174.0" y="388.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Stranger&#8217;s ACP client</text>
+<text x="174.0" y="404.55" font-size="12" fill="#5c6a64" text-anchor="middle">Agentic Commerce Protocol</text>
+<text x="174.0" y="420.55" font-size="12" fill="#5c6a64" text-anchor="middle">2026-04-17, plain httpx</text>
+<rect x="40" y="452" width="268" height="72" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="174.0" y="476.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Buyer app + Audit</text>
+<text x="174.0" y="492.55" font-size="12" fill="#5c6a64" text-anchor="middle">React 18, Vite, Tailwind</text>
+<text x="174.0" y="508.55" font-size="12" fill="#5c6a64" text-anchor="middle">SSE for live traces</text>
+<rect x="40" y="540" width="268" height="72" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="174.0" y="564.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Merchant console</text>
+<text x="174.0" y="580.55" font-size="12" fill="#5c6a64" text-anchor="middle">React (same codebase)</text>
+<text x="174.0" y="596.55" font-size="12" fill="#5c6a64" text-anchor="middle">brand selected by env</text>
+<rect x="1076" y="78" width="300" height="560" rx="7" fill="none" stroke="#c9d3ce" stroke-width="1.2"/>
+<text x="1088" y="96" font-size="11.5" fill="#5c6a64" text-anchor="start" font-weight="700">MERCHANT NETWORK</text>
+<rect x="1092" y="112" width="128" height="48" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1156.0" y="132.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="700">FreshKart</text>
+<text x="1156.0" y="148.125" font-size="11.5" fill="#5c6a64" text-anchor="middle">:8001</text>
+<rect x="1232" y="112" width="128" height="48" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1296.0" y="132.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="700">DailyMandi</text>
+<text x="1296.0" y="148.125" font-size="11.5" fill="#5c6a64" text-anchor="middle">:8005</text>
+<rect x="1092" y="172" width="128" height="48" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1156.0" y="192.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="700">Loomcraft</text>
+<text x="1156.0" y="208.125" font-size="11.5" fill="#5c6a64" text-anchor="middle">:8002</text>
+<rect x="1232" y="172" width="128" height="48" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1296.0" y="192.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="700">SilkRoute</text>
+<text x="1296.0" y="208.125" font-size="11.5" fill="#5c6a64" text-anchor="middle">:8004</text>
+<rect x="1092" y="232" width="128" height="48" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1156.0" y="252.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="700">UrbanNest</text>
+<text x="1156.0" y="268.125" font-size="11.5" fill="#5c6a64" text-anchor="middle">:8006</text>
+<rect x="1232" y="232" width="128" height="48" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1296.0" y="252.625" font-size="12.5" fill="#12181c" text-anchor="middle" font-weight="700">MittiCraft</text>
+<text x="1296.0" y="268.125" font-size="11.5" fill="#5c6a64" text-anchor="middle">:8007</text>
+<rect x="1092" y="300" width="268" height="150" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1226.0" y="339.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Shop API (x6)</text>
+<text x="1226.0" y="355.55" font-size="12" fill="#5c6a64" text-anchor="middle">FastAPI + Uvicorn</text>
+<text x="1226.0" y="371.55" font-size="12" fill="#5c6a64" text-anchor="middle">SQLite per shop</text>
+<text x="1226.0" y="387.55" font-size="12" fill="#5c6a64" text-anchor="middle">YAML config + JSON catalog</text>
+<text x="1226.0" y="403.55" font-size="12" fill="#5c6a64" text-anchor="middle">ACP adapter, manifest</text>
+<text x="1226.0" y="419.55" font-size="12" fill="#5c6a64" text-anchor="middle">hashlib SHA-256 chain</text>
+<text x="1226" y="490" font-size="11.5" fill="#5c6a64" text-anchor="middle" font-style="italic">one codebase, six configs</text>
+<text x="1226" y="520" font-size="12" fill="#0f6b52" text-anchor="middle" font-weight="600">add a merchant = 1 YAML + 1 JSON</text>
+<text x="1226" y="592" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">in: catalog, cart, order, negotiate</text>
+<text x="1226" y="606" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">back: callbacks, typed errors</text>
+<text x="1226" y="620" font-size="10.5" fill="#0f6b52" text-anchor="middle" font-style="italic">one charge, exactly as approved</text>
+<rect x="352" y="78" width="700" height="560" rx="7" fill="none" stroke="#c9d3ce" stroke-width="1.2"/>
+<text x="364" y="96" font-size="11.5" fill="#5c6a64" text-anchor="start" font-weight="700">THE VELCROWAI LAYER  :8003  -  Python 3.14, FastAPI, Uvicorn</text>
+<rect x="370" y="104" width="664" height="60" rx="5" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.5"/>
+<text x="702.0" y="122.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Orchestrator</text>
+<text x="702.0" y="138.55" font-size="12" fill="#5c6a64" text-anchor="middle">OpenAI gpt-4o-mini (intent) + deterministic catalog scorer (shop)</text>
+<text x="702.0" y="154.55" font-size="12" fill="#5c6a64" text-anchor="middle">APScheduler for the unattended agents - chainlog for every handoff</text>
+<rect x="370" y="178" width="210" height="96" rx="5" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.5"/>
+<text x="475.0" y="206.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Shopping assistant</text>
+<text x="475.0" y="222.55" font-size="12" fill="#5c6a64" text-anchor="middle">OpenAI function calling</text>
+<text x="475.0" y="238.55" font-size="12" fill="#5c6a64" text-anchor="middle">gpt-4o-mini, 9 tools</text>
+<text x="475.0" y="254.55" font-size="12" fill="#5c6a64" text-anchor="middle">asyncio + httpx</text>
+<rect x="597" y="178" width="210" height="96" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="702.0" y="206.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Buyer agent</text>
+<text x="702.0" y="222.55" font-size="12" fill="#5c6a64" text-anchor="middle">pure Python rules</text>
+<text x="702.0" y="238.55" font-size="12" fill="#5c6a64" text-anchor="middle">trust-weighted ranking</text>
+<text x="702.0" y="254.55" font-size="12" fill="#5c6a64" text-anchor="middle">SQLite run store</text>
+<rect x="824" y="178" width="210" height="96" rx="5" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.5"/>
+<text x="929.0" y="206.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Growth agent</text>
+<text x="929.0" y="222.55" font-size="12" fill="#5c6a64" text-anchor="middle">OpenAI function calling</text>
+<text x="929.0" y="238.55" font-size="12" fill="#5c6a64" text-anchor="middle">gpt-4o-mini, 7 tools</text>
+<text x="929.0" y="254.55" font-size="12" fill="#5c6a64" text-anchor="middle">APScheduler + Thompson bandit</text>
+<rect x="370" y="290" width="318" height="120" rx="5" fill="#f5e2dd" stroke="#a8341f" stroke-width="1.5"/>
+<text x="529.0" y="322.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Outreach + webhook</text>
+<text x="529.0" y="338.55" font-size="12" fill="#5c6a64" text-anchor="middle">FastAPI webhook routes</text>
+<text x="529.0" y="354.55" font-size="12" fill="#5c6a64" text-anchor="middle">HMAC-SHA256 signature check (hmac, hashlib)</text>
+<text x="529.0" y="370.55" font-size="12" fill="#5c6a64" text-anchor="middle">SQLite: offers, outbox, chats, OTPs</text>
+<text x="529.0" y="386.55" font-size="12" fill="#5c6a64" text-anchor="middle">threading workers, secrets for OTPs</text>
+<rect x="716" y="290" width="318" height="120" rx="5" fill="#f5e2dd" stroke="#a8341f" stroke-width="1.5"/>
+<text x="875.0" y="322.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Trust core</text>
+<text x="875.0" y="338.55" font-size="12" fill="#5c6a64" text-anchor="middle">PyJWT HS256 mandates + approvals</text>
+<text x="875.0" y="354.55" font-size="12" fill="#5c6a64" text-anchor="middle">HMAC-SHA256 negotiation tokens</text>
+<text x="875.0" y="370.55" font-size="12" fill="#5c6a64" text-anchor="middle">SHA-256 append-only chains (hashlib)</text>
+<text x="875.0" y="386.55" font-size="12" fill="#5c6a64" text-anchor="middle">SQLite: nonces, spends, bandit</text>
+<rect x="716" y="424" width="318" height="54" rx="5" fill="#d9e8e1" stroke="#0f6b52" stroke-width="2"/>
+<text x="875.0" y="439.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">wallet.py</text>
+<text x="875.0" y="455.55" font-size="12" fill="#5c6a64" text-anchor="middle">Razorpay Python SDK (test mode)</text>
+<text x="875.0" y="471.55" font-size="12" fill="#5c6a64" text-anchor="middle">76 lines, the only importer</text>
+<rect x="370" y="424" width="318" height="54" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="529.0" y="439.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">MCP server</text>
+<text x="529.0" y="455.55" font-size="12" fill="#5c6a64" text-anchor="middle">MCP Python SDK 2.x (MCPServer)</text>
+<text x="529.0" y="471.55" font-size="12" fill="#5c6a64" text-anchor="middle">stdio, httpx to the same endpoints</text>
+<line x1="475" y1="164" x2="475" y2="178" stroke="#8a6410" stroke-width="1.6" marker-end="url(#arr)"/>
+<line x1="702" y1="164" x2="702" y2="178" stroke="#8a6410" stroke-width="1.6" marker-end="url(#arr)"/>
+<line x1="929" y1="164" x2="929" y2="178" stroke="#8a6410" stroke-width="1.6" marker-end="url(#arr)"/>
+<line x1="475" y1="274" x2="475" y2="290" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<line x1="875" y1="274" x2="875" y2="290" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<line x1="875" y1="410" x2="875" y2="424" stroke="#0f6b52" stroke-width="1.6" marker-end="url(#arrg)"/>
+<text x="702" y="498" font-size="11.5" fill="#0f6b52" text-anchor="middle" font-weight="600">every surface and dialect -> the same wallet.py</text>
+<rect x="370" y="512" width="210" height="56" rx="5" fill="#ffffff" stroke="#7a5ea8" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="475.0" y="528.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">OpenAI API</text>
+<text x="475.0" y="544.55" font-size="12" fill="#5c6a64" text-anchor="middle">gpt-4o-mini, tool calling</text>
+<text x="475.0" y="560.55" font-size="12" fill="#5c6a64" text-anchor="middle">imported only by agent/llm.py</text>
+<rect x="597" y="512" width="210" height="56" rx="5" fill="#ffffff" stroke="#7a5ea8" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="702.0" y="528.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Meta Graph API</text>
+<text x="702.0" y="544.55" font-size="12" fill="#5c6a64" text-anchor="middle">WhatsApp Cloud API v25</text>
+<text x="702.0" y="560.55" font-size="12" fill="#5c6a64" text-anchor="middle">only common/whatsapp.py</text>
+<rect x="824" y="512" width="210" height="56" rx="5" fill="#ffffff" stroke="#7a5ea8" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="929.0" y="528.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Razorpay Orders API</text>
+<text x="929.0" y="544.55" font-size="12" fill="#5c6a64" text-anchor="middle">test mode</text>
+<text x="929.0" y="560.55" font-size="12" fill="#5c6a64" text-anchor="middle">only common/wallet.py</text>
+<text x="702" y="590" font-size="10.5" fill="#7a5ea8" text-anchor="middle" font-style="italic">dashed purple = external service, each reachable from exactly one module (test-enforced)</text>
+<line x1="308" y1="136" x2="352" y2="136" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="330.0" y="130.0" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">HTTP/JSON</text>
+<line x1="308" y1="224" x2="352" y2="224" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="330.0" y="218.0" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">webhook</text>
+<line x1="308" y1="312" x2="370" y2="440" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="330" y="300" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">stdio</text>
+<line x1="308" y1="400" x2="352" y2="400" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="330.0" y="394.0" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">ACP</text>
+<line x1="308" y1="488" x2="352" y2="488" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="330.0" y="482.0" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">HTTP/SSE</text>
+<line x1="308" y1="576" x2="352" y2="576" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="330.0" y="570.0" font-size="10.5" fill="#5c6a64" text-anchor="middle" font-style="italic">HTTP</text>
+<line x1="1052" y1="230" x2="1076" y2="230" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="1064" y="220" font-size="10" fill="#5c6a64" text-anchor="middle" font-style="italic">tools</text>
+<line x1="1076" y1="300" x2="1052" y2="300" stroke="#5c6a64" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="1064" y="316" font-size="10" fill="#5c6a64" text-anchor="middle" font-style="italic">callbacks</text>
+<line x1="1052" y1="444" x2="1076" y2="444" stroke="#0f6b52" stroke-width="1.6" marker-end="url(#arrg)"/>
+<text x="1064" y="460" font-size="10" fill="#0f6b52" text-anchor="middle" font-style="italic">pay</text>
+<rect x="24" y="660" width="1352" height="276" rx="7" fill="none" stroke="#c9d3ce" stroke-width="1.2"/>
+<text x="36" y="678" font-size="11.5" fill="#5c6a64" text-anchor="start" font-weight="700">DATA AND PROOF</text>
+<rect x="40" y="690" width="300" height="96" rx="5" fill="#d9e8e1" stroke="#0f6b52" stroke-width="2"/>
+<text x="190.0" y="726.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Hash chains (x7)</text>
+<text x="190.0" y="742.55" font-size="12" fill="#5c6a64" text-anchor="middle">hashlib SHA-256</text>
+<text x="190.0" y="758.55" font-size="12" fill="#5c6a64" text-anchor="middle">append-only JSONL, data/chains/</text>
+<rect x="356" y="690" width="300" height="96" rx="5" fill="#eef1ef" stroke="#8a958f" stroke-width="1.5"/>
+<text x="506.0" y="726.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">trust.sqlite</text>
+<text x="506.0" y="742.55" font-size="12" fill="#5c6a64" text-anchor="middle">SQLite (stdlib sqlite3)</text>
+<text x="506.0" y="758.55" font-size="12" fill="#5c6a64" text-anchor="middle">revocations, spends, nonces, bandit</text>
+<rect x="672" y="690" width="300" height="96" rx="5" fill="#eef1ef" stroke="#8a958f" stroke-width="1.5"/>
+<text x="822.0" y="726.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">whatsapp.sqlite</text>
+<text x="822.0" y="742.55" font-size="12" fill="#5c6a64" text-anchor="middle">SQLite</text>
+<text x="822.0" y="758.55" font-size="12" fill="#5c6a64" text-anchor="middle">offers, outbox, chats, OTPs, links</text>
+<rect x="988" y="690" width="372" height="96" rx="5" fill="#eef1ef" stroke="#8a958f" stroke-width="1.5"/>
+<text x="1174.0" y="726.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Shop databases (x6)</text>
+<text x="1174.0" y="742.55" font-size="12" fill="#5c6a64" text-anchor="middle">SQLite</text>
+<text x="1174.0" y="758.55" font-size="12" fill="#5c6a64" text-anchor="middle">stock, carts, orders, ledger, proposals</text>
+<rect x="40" y="806" width="452" height="96" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="266.0" y="842.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Audit room</text>
+<text x="266.0" y="858.55" font-size="12" fill="#5c6a64" text-anchor="middle">React + SSE</text>
+<text x="266.0" y="874.55" font-size="12" fill="#5c6a64" text-anchor="middle">verify / tamper / disputes / Revenue Lab</text>
+<rect x="508" y="806" width="452" height="96" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="734.0" y="842.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Proof scripts</text>
+<text x="734.0" y="858.55" font-size="12" fill="#5c6a64" text-anchor="middle">Python + httpx (lab/)</text>
+<text x="734.0" y="874.55" font-size="12" fill="#5c6a64" text-anchor="middle">determinism, negotiation, third-party ACP buyer</text>
+<rect x="976" y="806" width="384" height="96" rx="5" fill="#ffffff" stroke="#12181c" stroke-width="1.5"/>
+<text x="1168.0" y="842.55" font-size="13" fill="#12181c" text-anchor="middle" font-weight="700">Tests</text>
+<text x="1168.0" y="858.55" font-size="12" fill="#5c6a64" text-anchor="middle">pytest 9, FastAPI TestClient, monkeypatch</text>
+<text x="1168.0" y="874.55" font-size="12" fill="#5c6a64" text-anchor="middle">404 tests; ast-based import guards</text>
+<rect x="40" y="938" width="12" height="12" rx="2" fill="#f5ecd6" stroke="#8a6410" stroke-width="1.4"/>
+<text x="58" y="948" font-size="11" fill="#5c6a64" text-anchor="start">model deciding</text>
+<rect x="255" y="938" width="12" height="12" rx="2" fill="#f5e2dd" stroke="#a8341f" stroke-width="1.4"/>
+<text x="273" y="948" font-size="11" fill="#5c6a64" text-anchor="start">code gate</text>
+<rect x="470" y="938" width="12" height="12" rx="2" fill="#d9e8e1" stroke="#0f6b52" stroke-width="1.4"/>
+<text x="488" y="948" font-size="11" fill="#5c6a64" text-anchor="start">safe path / proof</text>
+<rect x="685" y="938" width="12" height="12" rx="2" fill="#ffffff" stroke="#7a5ea8" stroke-width="1.4" stroke-dasharray="4,3"/>
+<text x="703" y="948" font-size="11" fill="#5c6a64" text-anchor="start">external service</text>
+<rect x="900" y="938" width="12" height="12" rx="2" fill="#ffffff" stroke="#a8341f" stroke-width="1.4" stroke-dasharray="4,3"/>
+<text x="918" y="948" font-size="11" fill="#5c6a64" text-anchor="start">someone else&#8217;s client</text>
+<rect x="1115" y="938" width="12" height="12" rx="2" fill="#eef1ef" stroke="#8a958f" stroke-width="1.4"/>
+<text x="1133" y="948" font-size="11" fill="#5c6a64" text-anchor="start">data store</text>
+</svg>

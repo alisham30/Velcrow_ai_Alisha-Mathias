@@ -5,6 +5,25 @@ it hit, with the cause, the fix and the regression test. These are the ones
 worth telling. One pattern runs through all of them: **when the agent went
 wrong, the fix was never a better prompt. It was moving the rule into code.**
 
+## 0. The whole codebase, when it tried to be one portal
+
+The first build was one application: the shop, the agent, the buyer and the
+merchant console in a single codebase with a single database. It collapsed
+under its own coupling - the agent could reach the shop's tables directly,
+the shop's pricing and the agent's reasoning shared state, and every change
+to one broke the other. There was no line anyone could point at and say
+"the model cannot cross this".
+
+**Out:** tear it down and rebuild as separate services that only meet at
+published HTTP endpoints - each shop its own process with its own database
+(:8001-:8007), the VelcrowAI layer its own (:8003), the buyer app and audit
+room their own. The shops cannot see each other; the agent cannot see a
+stock number; money can only enter a shop through one endpoint. That
+enforced separation is not a deployment detail - it became the product's
+core argument: judgment lives in the layer, arithmetic lives in the shops,
+and money passes through exactly one door. Every guardrail that came later
+was only possible because the wall was there first.
+
 ## 1. The agent walked through every guardrail written in prose
 
 The merchant growth agent had three rules in its prompt: simulate before you

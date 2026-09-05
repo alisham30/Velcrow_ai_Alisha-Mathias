@@ -490,7 +490,7 @@ class ShopDB:
                 # basket produced: buying the 18 you got is not recovering the
                 # 3 you were refused (found live, 2026-09-04).
                 rows = c.execute(
-                    "SELECT id, qty, value_paise FROM demand_ledger WHERE item_id = ?"
+                    "SELECT id, qty, value_paise, unit_price_paise FROM demand_ledger WHERE item_id = ?"
                     " AND variant = ? AND converted_ts IS NULL AND cart_id != ?"
                     f" AND ({' OR '.join(clauses)}) ORDER BY created_ts",
                     [params[0], params[1], str(order.get("cart_id") or "")] + params[2:]).fetchall()
@@ -502,7 +502,27 @@ class ShopDB:
                     if remaining <= 0:
                         break
                     if int(r["qty"]) > remaining:
-                        continue
+                        # A basket refused 4 of something now lives in ONE row.
+                        # Buying 1 recovers 1 unit of it: split the row, settle
+                        # the part this basket supplies, leave the rest owed.
+                        unit = int(r["unit_price_paise"])
+                        c.execute(
+                            "INSERT INTO demand_ledger (item_id, variant, qty, unit_price_paise,"
+                            " value_paise, reason, res_id, created_ts, shopper_ref, contact_key,"
+                            " cart_id, notified_ts, converted_ts, converted_txn)"
+                            " SELECT item_id, variant, ?, unit_price_paise, ?, reason, NULL,"
+                            " created_ts, shopper_ref, contact_key, cart_id, notified_ts, ?, ?"
+                            " FROM demand_ledger WHERE id = ?",
+                            (remaining, remaining * unit, time.time(), order["txn_ref"], r["id"]))
+                        left = int(r["qty"]) - remaining
+                        c.execute("UPDATE demand_ledger SET qty = ?, value_paise = ? WHERE id = ?",
+                                  (left, left * unit, r["id"]))
+                        closed.append({"id": int(c.execute("SELECT last_insert_rowid()").fetchone()[0]),
+                                       "item_id": li["item_id"],
+                                       "variant": str(li.get("variant") or ""),
+                                       "qty": remaining, "value_paise": remaining * unit})
+                        remaining = 0
+                        break
                     c.execute("UPDATE demand_ledger SET converted_ts = ?, converted_txn = ?"
                               " WHERE id = ?", (time.time(), order["txn_ref"], r["id"]))
                     remaining -= int(r["qty"])
@@ -694,7 +714,8 @@ class ShopDB:
     # -- demand ledger (spec 6.1, 7.2: refusals become restock forecasts) ----
     def record_lost_demand(self, item_id: str, variant: str, qty: int, unit_price_paise: int,
                            reason: str, res_id: str | None = None, shopper_ref: str = "",
-                           contact_key: str = "", cart_id: str = "") -> int:
+                           contact_key: str = "", cart_id: str = "",
+                           accumulate: bool = True) -> int:
         """One row per refused demand. value_paise is the revenue not taken.
 
         Records WHO was turned away where we know. A shop that cannot HOLD a
@@ -704,6 +725,33 @@ class ShopDB:
         payment can never count as the recovery.
         """
         with self._conn() as c:
+            if res_id is None and (cart_id or shopper_ref or contact_key):
+                # One open row per basket (or person) per item. A shopper who
+                # was refused three times for the same lemons from the same
+                # basket has ONE want, not three - three rows fanned out three
+                # "back in stock" cards on one restock (found live). An "add"
+                # refusal grows the open row; a "target" refusal replaces it.
+                if cart_id:
+                    who, arg = "cart_id = ?", cart_id
+                elif shopper_ref:
+                    who, arg = "shopper_ref = ?", shopper_ref
+                else:
+                    who, arg = "contact_key = ?", contact_key
+                open_row = c.execute(
+                    "SELECT id, qty FROM demand_ledger WHERE item_id = ? AND variant = ?"
+                    f" AND res_id IS NULL AND notified_ts IS NULL AND converted_ts IS NULL AND {who}",
+                    (item_id, variant, arg)).fetchone()
+                if open_row is not None:
+                    if accumulate:
+                        qty += int(open_row["qty"])
+                    c.execute(
+                        "UPDATE demand_ledger SET qty = ?, unit_price_paise = ?, value_paise = ?,"
+                        " reason = ?, created_ts = ?, shopper_ref = CASE WHEN ? != '' THEN ?"
+                        " ELSE shopper_ref END, contact_key = CASE WHEN ? != '' THEN ? ELSE"
+                        " contact_key END WHERE id = ?",
+                        (qty, unit_price_paise, qty * unit_price_paise, reason, time.time(),
+                         shopper_ref, shopper_ref, contact_key, contact_key, open_row["id"]))
+                    return int(open_row["id"])
             cur = c.execute(
                 "INSERT INTO demand_ledger (item_id, variant, qty, unit_price_paise, value_paise,"
                 " reason, res_id, created_ts, shopper_ref, contact_key, cart_id)"

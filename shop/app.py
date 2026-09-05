@@ -776,7 +776,8 @@ def create_app() -> FastAPI:
             db.record_lost_demand(item_id, variant, shortfall, product["price_paise"],
                                   "out_of_stock_unreservable",
                                   shopper_ref=str(body.get("shopper_ref") or ""),
-                                  contact_key=fulfil_contact_key, cart_id=cart_id)
+                                  contact_key=fulfil_contact_key, cart_id=cart_id,
+                                  accumulate=(mode == "add"))
             chainlog.append(shop_id, "demand_lost",
                             f"{shortfall} x '{item_id}' {variant or '-'} could not be supplied "
                             f"and this shop takes no reservations; "
@@ -801,37 +802,13 @@ def create_app() -> FastAPI:
             "can_reserve": bool(caps.get("reservations")),
         }
 
-    @app.post("/admin/restock")
-    async def admin_restock(request: Request) -> dict[str, Any]:
-        """Add stock AND fire reservation callbacks to :8003 (spec 6.1, 7.2).
-
-        This is the moment the system stops being reactive. Nobody is shopping;
-        the merchant restocked, and the agent goes and finds the people who
-        were turned away. The shop does not decide whether to contact anyone -
-        it reports the restock and who was waiting, and :8003 re-checks each
-        mandate before putting an offer in front of a shopper.
-        """
-        body = await json_body(request)
-        item_id, variant = body["item_id"], str(body.get("variant") or "")
-        qty = int(body.get("qty", 0))
-        if qty <= 0:
-            raise errors.BadRequest("qty must be a positive integer")
-        product = db.product(item_id)
-        if product is None:
-            raise errors.NotFound(f"no such product '{item_id}'", product_id=item_id)
-        if db.stock_row(item_id, variant) is None:
-            raise errors.NotFound(f"product '{item_id}' has no variant '{variant or '-'}'",
-                                  product_id=item_id, variant=variant)
-
+    def notify_waiting(item_id: str, variant: str, product: dict[str, Any],
+                       base_url: str) -> list[dict[str, Any]]:
+        """Tell everyone refused this item that it is on the shelf: the demand
+        ledger rows nobody held a unit for, and the open reservations. Fired by
+        an admin restock, by an approved restock card, and by an approved
+        notify card. The shop reports; VelcrowAI decides whether to reach out."""
         waiting = db.open_reservations(item_id, variant)
-        db.adjust_stock(item_id, variant, qty)
-        new_stock = db.stock_row(item_id, variant)[0]
-        chainlog.append(shop_id, "restocked",
-                        f"'{item_id}' variant '{variant or '-'}' restocked by {qty} to {new_stock}; "
-                        f"{len(waiting)} reservation(s) waiting",
-                        {"product_id": item_id, "variant": variant, "added": qty,
-                         "stock": new_stock, "waiting": len(waiting)})
-
         notified: list[dict[str, Any]] = []
 
         # People who were refused but whose demand no reservation covers. This
@@ -840,7 +817,7 @@ def create_app() -> FastAPI:
         if caps.get("restock_notify"):
             for row in db.unnotified_demand(item_id, variant):
                 payload = {
-                    "shop_id": shop_id, "shop_url": str(request.base_url).rstrip("/"),
+                    "shop_id": shop_id, "shop_url": base_url,
                     "res_id": f"demand_{row['id']}", "product_id": item_id,
                     "product_name": product["name"], "variant": variant,
                     "qty": int(row["qty"]), "unit_price_paise": product["price_paise"],
@@ -871,7 +848,7 @@ def create_app() -> FastAPI:
 
         for res in waiting:
             payload = {
-                "shop_id": shop_id, "shop_url": str(request.base_url).rstrip("/"),
+                "shop_id": shop_id, "shop_url": base_url,
                 "res_id": res["res_id"], "product_id": item_id,
                 "product_name": product["name"], "variant": variant,
                 "qty": int(res["qty"] or 1), "unit_price_paise": product["price_paise"],
@@ -907,6 +884,40 @@ def create_app() -> FastAPI:
                                if delivered else "not delivered, reservation stays open"),
                             {"res_id": res["res_id"], "delivered": delivered, "offered": offered,
                              "product_id": item_id, "variant": variant})
+        return notified
+
+    @app.post("/admin/restock")
+    async def admin_restock(request: Request) -> dict[str, Any]:
+        """Add stock AND fire reservation callbacks to :8003 (spec 6.1, 7.2).
+
+        This is the moment the system stops being reactive. Nobody is shopping;
+        the merchant restocked, and the agent goes and finds the people who
+        were turned away. The shop does not decide whether to contact anyone -
+        it reports the restock and who was waiting, and :8003 re-checks each
+        mandate before putting an offer in front of a shopper.
+        """
+        body = await json_body(request)
+        item_id, variant = body["item_id"], str(body.get("variant") or "")
+        qty = int(body.get("qty", 0))
+        if qty <= 0:
+            raise errors.BadRequest("qty must be a positive integer")
+        product = db.product(item_id)
+        if product is None:
+            raise errors.NotFound(f"no such product '{item_id}'", product_id=item_id)
+        if db.stock_row(item_id, variant) is None:
+            raise errors.NotFound(f"product '{item_id}' has no variant '{variant or '-'}'",
+                                  product_id=item_id, variant=variant)
+
+        waiting = db.open_reservations(item_id, variant)
+        db.adjust_stock(item_id, variant, qty)
+        new_stock = db.stock_row(item_id, variant)[0]
+        chainlog.append(shop_id, "restocked",
+                        f"'{item_id}' variant '{variant or '-'}' restocked by {qty} to {new_stock}; "
+                        f"{len(waiting)} reservation(s) waiting",
+                        {"product_id": item_id, "variant": variant, "added": qty,
+                         "stock": new_stock, "waiting": len(waiting)})
+
+        notified = notify_waiting(item_id, variant, product, str(request.base_url).rstrip("/"))
 
         # "Nobody was waiting" and "everyone waiting has already been told" are
         # different facts, and reporting the second as the first reads as though
@@ -1073,8 +1084,24 @@ def create_app() -> FastAPI:
             if prop["kind"] == "restock":
                 db.adjust_stock(payload["item_id"], payload.get("variant", ""),
                                 int(payload["qty"]))
+                # An approved restock used to refill the shelf in silence, so
+                # the shoppers it was bought for were never told (found live:
+                # four sarees on the shelf, three refusals nobody went back
+                # to). A restock is for someone; tell them.
+                product = db.product(payload["item_id"]) or {}
+                told = notify_waiting(payload["item_id"], payload.get("variant", ""),
+                                      product, str(request.base_url).rstrip("/"))
                 applied = {"restocked": int(payload["qty"]),
-                           "item_id": payload["item_id"]}
+                           "item_id": payload["item_id"],
+                           "notified": len([t for t in told if t.get("offered")])}
+            elif prop["kind"] == "notify":
+                # No stock bought, no price touched: the shelf already has it
+                # and the refused shoppers simply have not been told.
+                product = db.product(payload["item_id"]) or {}
+                told = notify_waiting(payload["item_id"], payload.get("variant", ""),
+                                      product, str(request.base_url).rstrip("/"))
+                applied = {"item_id": payload["item_id"],
+                           "notified": len([t for t in told if t.get("offered")])}
             elif prop["kind"] in ("campaign", "coupon"):
                 db.add_runtime_coupon(payload["coupon"], float(payload.get("days", 7)))
                 applied = {"coupon": payload["coupon"]["code"],

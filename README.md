@@ -30,13 +30,36 @@ The proof it is an agent and not a script ships with the repo: run `lab/determin
 
 ### Honest by construction
 
-Razorpay runs in test mode and WhatsApp on Meta's test tier - real APIs, no real rupees, no strangers reachable. 404 tests pass. And every real bug we hit building this, including the ones found live by a real shopper mid-demo, is written up in `BREAKAGE.md` with the fix and a regression test - because an audit trail you can attack, and a failure log we kept, are worth more than a demo that pretends nothing ever broke. The ten stories worth telling are in [docs/WHAT_BROKE.md](docs/WHAT_BROKE.md); the video script is in [docs/VIDEO_SCRIPT.md](docs/VIDEO_SCRIPT.md).
+Razorpay runs in test mode and WhatsApp on Meta's test tier - real APIs, no real rupees, no strangers reachable. 414 tests pass. And every real bug we hit building this, including the ones found live by a real shopper mid-demo, is written up in `BREAKAGE.md` with the fix and a regression test - because an audit trail you can attack, and a failure log we kept, are worth more than a demo that pretends nothing ever broke. The stories worth telling are in [docs/WHAT_BROKE.md](docs/WHAT_BROKE.md); the video script is in [docs/VIDEO_SCRIPT.md](docs/VIDEO_SCRIPT.md), and the scene-by-scene presenter notes, with the technology behind each scene, in [docs/PRESENTER_SCRIPT.md](docs/PRESENTER_SCRIPT.md).
 
 ## Architecture
 
 <p align="center"><img src="docs/architecture.svg" width="980" alt="VelcrowAI architecture - five tiers, one door to money"></p>
 
 Models think in tier 3, arithmetic lives in tier 4, money passes only through the wallet, and every actor's every action lands on a hash chain in tier 5.
+
+### Tech stack and algorithms, on one page
+
+<p align="center"><img src="docs/architecture_final.svg" width="1100" alt="VelcrowAI - architecture, tech stack and algorithms"></p>
+
+Gold is where a model decides, red is code that can refuse, green is the money path and the proof, dashed purple is an external service with exactly one importing module. Every figure on it was read from the code: 11 assistant tools, 7 growth-agent tools, 10 MCP tools, a 76-line wallet, 7 hash chains, 414 tests.
+
+| Part | Technique | Built with |
+|---|---|---|
+| Shopping assistant | LLM function calling; stock seen only as in/out; one add per product per turn enforced in code | OpenAI gpt-4o-mini, asyncio, httpx |
+| Message router | model judges intent (instruction vs goal) with a regex fallback; deterministic code picks the shop by scoring words against live catalogs | gpt-4o-mini, plain Python |
+| Buyer agent | rules and trust-weighted ranking across six shops; the stated budget becomes the mandate cap; zero model calls | Python, SQLite |
+| Growth agent | LLM tool loop behind three code gates: sent back once, no card without a simulation, no duplicates | gpt-4o-mini, APScheduler |
+| Strategy order | Thompson sampling, one Beta(alpha, beta) per shop and card kind | stdlib random |
+| Negotiation | floor = cost in integer basis points with ceiling division; offers are signed price tokens, spendable once | HMAC-SHA256 |
+| Mandates and approvals | signed session mandates with caps, expiry and nonce; cart-bound approvals over a hash of the items | PyJWT HS256, SHA-256 |
+| Wallet | five ordered checks, exact-amount capture, PRICE_CHANGED refusal | Razorpay Python SDK, test mode |
+| Trust | per-shop score that halves on any violation; ranks the buyer's choices | Python, SQLite |
+| WhatsApp | signed webhooks, replay dedupe, say-once offers, hashed OTPs that expire in five minutes and burn after three attempts, link login | Meta Cloud API v25, hmac, hashlib, secrets |
+| Other agents | Agentic Commerce Protocol 2026-04-17 with idempotency keys; MCP server with a login gate and hard spend caps | httpx, MCP Python SDK 2.x |
+| Proof | SHA-256 hash chain per actor, append-only; a determinism check that fails itself if two worlds give the same trace | hashlib, pytest |
+
+Not used, on purpose: no LangChain or LangGraph (orchestration is plain Python and every handoff is chain-logged), no fine-tuned model (the only learning is the bandit), no floats anywhere near money.
 
 ## Agent-to-agent flow
 
@@ -54,6 +77,70 @@ The shopper never creates an account, never types a password or card number, and
 
 <p align="center"><img src="docs/branches.svg" width="980" alt="Branches of the project"></p>
 
+## Repository layout
+
+```
+velcrow-ai/
+  run_all.ps1            start or stop all ten services
+  reset_demo.ps1         wipe orders, carts, chains and trust back to a clean shop
+  requirements.txt       Python dependencies (FastAPI, httpx, PyJWT, razorpay, openai, mcp, APScheduler)
+  BREAKAGE.md            every real bug, in order: cause, fix, regression test
+  VELCROW_ROUND2_1.md    the build spec this codebase implements
+
+  common/                shared by every service; nothing here imports a model
+    wallet.py              the only door to money: five checks, the only Razorpay importer
+    mandate.py             session mandates (HS256 JWT with caps, expiry, nonce)
+    approval.py            cart-bound approvals over a SHA-256 hash of the items
+    chainlog.py            SHA-256 hash chains, one append-only JSONL per actor
+    trust.py               per-shop trust score, halves on any violation
+    bandit.py              Thompson sampling over the growth agent's card kinds
+    money.py               the one money formatter (integer paise in, rupee strings out)
+    contact.py             one normalisation for the shopper key (phone or email)
+    errors.py              typed error taxonomy with machine codes
+    whatsapp.py            the only module that talks to Meta's Graph API
+
+  agent/                 the VelcrowAI layer, port 8003
+    app.py                 FastAPI service: widget, webhook, buyer, merchant, audit, callbacks
+    orchestrator.py        which agent gets the work; schedules; chain-logged handoffs
+    runtime.py             the tool-calling loop and the run registry behind SSE
+    tools.py               the assistant's 11 tools; zero LLM imports
+    llm.py                 the only module that imports the OpenAI SDK; prompts, schemas, fallbacks
+    outreach.py            WhatsApp: chat turns, offers, taps, OTP and link login, say-once
+    buyer.py               the deterministic cross-shop buyer agent
+    merchant.py            the growth agent: seven tools, three gates, simulations
+    static/velcrow.js      the storefront widget
+
+  shop/                  one shop codebase, six configs, ports 8001 to 8007
+    app.py                 catalog, cart, order, restock, proposals, ledger, console API
+    db.py                  SQLite: stock, carts, orders, demand ledger, proposals, sessions
+    coupons.py             coupon optimiser
+    negotiation.py         agent-to-agent price negotiation with signed tokens
+    acp.py                 Agentic Commerce Protocol adapter
+    config.py              loads a YAML config and its JSON catalog
+    configs/               grocery, grocery2, apparel, apparel2, home, home2
+    catalogs/              the matching product files
+
+  mcp_server/
+    velcrow_mcp.py         VelcrowAI as an MCP server: ten tools, login gate, hard caps
+
+  web-shop/              storefront, checkout, orders, merchant console (React, Vite, Tailwind)
+  web-agent/             buyer app and audit room (React, SSE)
+
+  lab/                   scripts that drive the running system
+    determinism_check.py   the not-a-script proof
+    negotiate_demo.py      three negotiations end to end
+    third_party_buyer.py   a stranger's ACP buyer that imports none of this code
+    revenue_lab.py         what the agent actually did to a merchant's books
+    seed_demo.py           seed a paired demo the lab can measure
+    buy.py, convo.py, issue_mandate.py, regress.py   harnesses and a conversation regression suite
+
+  tests/                 414 tests: import guards, wallet, mandates, chains, shops, ACP,
+                         MCP, WhatsApp, orchestrator, growth agent, ledger settlement
+
+  docs/                  diagrams (SVG), WHAT_BROKE.md, VIDEO_SCRIPT.md, PRESENTER_SCRIPT.md
+  data/                  runtime state, git-ignored: SQLite databases and chain logs
+```
+
 ## Run it
 
 ```
@@ -68,8 +155,10 @@ To shop the network from Claude Desktop (or any MCP client), point it at the bun
 ```json
 {"mcpServers": {"velcrow": {
     "command": "<repo>\\.venv\\Scripts\\python.exe",
-    "args": ["-m", "mcp_server.velcrow_mcp"],
-    "cwd": "<repo>"}}}
+    "args": ["<repo>\\mcp_server\\velcrow_mcp.py"],
+    "env": {"PYTHONPATH": "<repo>"}}}}
 ```
+
+The absolute script path and `PYTHONPATH` matter: the Microsoft Store build of Claude Desktop ignores `cwd`. After changing the config, quit Claude Desktop from the tray and reopen it.
 
 Storefronts at http://localhost:5173 and :5174, buyer app and audit at :5175, merchant consoles at /console on each storefront. The four newer merchants have no storefront by design - they joined the network API-first, which is the point: an agent can shop them anyway. Razorpay is test mode; WhatsApp is Meta's test number tier. No real money moves anywhere in this project.
