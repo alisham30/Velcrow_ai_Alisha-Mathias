@@ -30,7 +30,7 @@ The proof it is an agent and not a script ships with the repo: run `lab/determin
 
 ### Honest by construction
 
-Razorpay runs in test mode and WhatsApp on Meta's test tier - real APIs, no real rupees, no strangers reachable. 414 tests pass. And every real bug we hit building this, including the ones found live by a real shopper mid-demo, is written up in `BREAKAGE.md` with the fix and a regression test - because an audit trail you can attack, and a failure log we kept, are worth more than a demo that pretends nothing ever broke. The stories worth telling are in [docs/WHAT_BROKE.md](docs/WHAT_BROKE.md); the video script is in [docs/VIDEO_SCRIPT.md](docs/VIDEO_SCRIPT.md), and the scene-by-scene presenter notes, with the technology behind each scene, in [docs/PRESENTER_SCRIPT.md](docs/PRESENTER_SCRIPT.md).
+Razorpay runs in test mode and WhatsApp on Meta's test tier - real APIs, no real rupees, no strangers reachable. 414 tests pass. And every real bug we hit building this, including the ones found live by a real shopper mid-demo, is written up in `BREAKAGE.md` with the fix and a regression test - because an audit trail you can attack, and a failure log we kept, are worth more than a demo that pretends nothing ever broke. The stories worth telling are in [docs/WHAT_BROKE.md](docs/WHAT_BROKE.md).
 
 ## Architecture
 
@@ -137,7 +137,7 @@ velcrow-ai/
   tests/                 414 tests: import guards, wallet, mandates, chains, shops, ACP,
                          MCP, WhatsApp, orchestrator, growth agent, ledger settlement
 
-  docs/                  diagrams (SVG), WHAT_BROKE.md, VIDEO_SCRIPT.md, PRESENTER_SCRIPT.md
+  docs/                  diagrams (SVG) and WHAT_BROKE.md
   data/                  runtime state, git-ignored: SQLite databases and chain logs
 ```
 
